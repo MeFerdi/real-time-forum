@@ -2,55 +2,30 @@ package repository
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 )
 
+//go:embed schema.sql
+var schema string
+
 func MigrateDB(db *sql.DB) error {
-	// Read migration files
-	migrations, err := os.ReadDir("migrations")
-	if err != nil {
-		return fmt.Errorf("failed to read migrations: %w", err)
+	// Enable foreign keys for SQLite
+	if _, err := db.Exec("PRAGMA foreign_keys = ON;"); err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
 	}
 
-	// Filter and sort .up.sql files
-	var upMigrations []fs.DirEntry
-	for _, m := range migrations {
-		if strings.HasSuffix(m.Name(), ".up.sql") {
-			upMigrations = append(upMigrations, m)
-		}
+	// Execute schema
+	if _, err := db.Exec(schema); err != nil {
+		return fmt.Errorf("failed to execute schema: %w", err)
 	}
-	sort.Slice(upMigrations, func(i, j int) bool {
-		return upMigrations[i].Name() < upMigrations[j].Name()
-	})
 
-	// Execute each migration in a transaction
-	for _, migration := range upMigrations {
-		path := filepath.Join("migrations", migration.Name())
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read migration %s: %w", path, err)
+	// Verify tables
+	tables := []string{"users", "sessions", "posts", "comments", "private_messages"}
+	for _, table := range tables {
+		if _, err := db.Exec(fmt.Sprintf("SELECT 1 FROM %s LIMIT 1;", table)); err != nil {
+			return fmt.Errorf("verification failed for table %s: %w", table, err)
 		}
-
-		tx, err := db.Begin()
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction: %w", err)
-		}
-
-		if _, err := tx.Exec(string(content)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to execute migration %s: %w", path, err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("failed to commit migration %s: %w", path, err)
-		}
-
-		fmt.Printf("Applied migration: %s\n", path)
 	}
 
 	return nil
