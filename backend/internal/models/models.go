@@ -1,71 +1,112 @@
-package models
+package domain
 
-const CreateUsersTable = `
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    uuid TEXT UNIQUE NOT NULL,
-    nickname TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,  -- bcrypt hashed
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    age INTEGER NOT NULL,
-    gender TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_online DATETIME,
-    is_online BOOLEAN DEFAULT FALSE
-);
-`
+import (
+	"time"
+)
+type User struct {
+	ID           int       `json:"id"`
+	UUID         string    `json:"uuid" gorm:"unique;not null"`
+	Nickname     string    `json:"nickname" gorm:"unique;not null"`
+	Email        string    `json:"email" gorm:"unique;not null"`
+	PasswordHash string    `json:"-" gorm:"not null"`
+	FirstName    string    `json:"first_name" gorm:"not null"`
+	LastName     string    `json:"last_name" gorm:"not null"`
+	Age          int       `json:"age" gorm:"not null"`
+	Gender       string    `json:"gender" gorm:"not null"`
+	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
+	LastOnline   time.Time `json:"last_online"`
+	IsOnline     bool      `json:"is_online" gorm:"default:false"`
 
-const CreateSessionsTable = `
-CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    token TEXT UNIQUE NOT NULL,  -- UUID
-    expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+	// Relationships
+	Posts        []Post           `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
+	Comments     []Comment        `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
+	SentMessages []PrivateMessage `json:"-" gorm:"foreignKey:SenderID;constraint:OnDelete:CASCADE;"`
+	ReceivedMessages []PrivateMessage `json:"-" gorm:"foreignKey:ReceiverID;constraint:OnDelete:CASCADE;"`
+	Sessions     []Session        `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
+	Likes        []Like           `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
+	Following    []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowerID;joinReferences:FollowingID;constraint:OnDelete:CASCADE;"`
+	Followers    []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowingID;joinReferences:FollowerID;constraint:OnDelete:CASCADE;"`
+}
 
-`
+// Session represents a user's active session
+type Session struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	UserID    int       `json:"user_id" gorm:"not null;index"`
+	Token     string    `json:"token" gorm:"unique;not null;index"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
 
-const CreatePostsTable = `
-CREATE TABLE posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    category TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME,
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+// Post represents a user-created post
+type Post struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	UserID    int       `json:"user_id" gorm:"not null;index"`
+	Title     string    `json:"title" gorm:"not null;size:255"`
+	Content   string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-`
+	// Relationships
+	User       *User     `json:"user,omitempty" gorm:"-"`
+	Comments   []Comment `json:"comments,omitempty" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;"`
+	Categories []Category `json:"categories,omitempty" gorm:"many2many:post_categories;constraint:OnDelete:CASCADE;"`
+	Likes      []Like    `json:"likes,omitempty" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;"`
+}
 
-const CreateCommentsTable = `
-CREATE TABLE comments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+// Comment represents a comment on a post
+type Comment struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	PostID    int       `json:"post_id" gorm:"not null;index"`
+	UserID    int       `json:"user_id" gorm:"not null;index"`
+	Content   string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 
-`
+	// Relationships
+	Post *Post `json:"post,omitempty" gorm:"-"`
+	User *User `json:"user,omitempty" gorm:"-"`
+}
 
-const CreatePrivateMessageTable = `
-CREATE TABLE private_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender_id INTEGER NOT NULL,
-    receiver_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_read BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY(receiver_id) REFERENCES users(id) ON DELETE CASCADE
-);
+// PrivateMessage represents a direct message between users
+type PrivateMessage struct {
+	ID         int       `json:"id" gorm:"primaryKey"`
+	SenderID   int       `json:"sender_id" gorm:"not null;index"`
+	ReceiverID int       `json:"receiver_id" gorm:"not null;index"`
+	Content    string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
+	IsRead     bool      `json:"is_read" gorm:"default:false"`
 
-`
+	// Relationships
+	Sender   *User `json:"sender,omitempty" gorm:"-"`
+	Receiver *User `json:"receiver,omitempty" gorm:"-"`
+}
+
+// Category represents a post category
+type Category struct {
+	ID    int    `json:"id" gorm:"primaryKey"`
+	Name  string `json:"name" gorm:"unique;not null"`
+}
+
+// Like represents a user liking a post
+type Like struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	UserID    int       `json:"user_id" gorm:"not null;index"`
+	PostID    int       `json:"post_id" gorm:"not null;index"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	// Relationships
+	User *User `json:"user,omitempty" gorm:"-"`
+	Post *Post `json:"post,omitempty" gorm:"-"`
+}
+
+// UserFollower represents the many-to-many relationship between users
+type UserFollower struct {
+	FollowerID  int       `json:"follower_id" gorm:"primaryKey"`
+	FollowingID int       `json:"following_id" gorm:"primaryKey"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
+
+// PostCategory represents the many-to-many relationship between posts and categories
+type PostCategory struct {
+	PostID     int `json:"post_id" gorm:"primaryKey"`
+	CategoryID int `json:"category_id" gorm:"primaryKey"`
+}
