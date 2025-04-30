@@ -2,53 +2,51 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
+	"net/http"
 
+	"real-time/backend/internal/config"
 	"real-time/backend/internal/repository"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
-	// Setup in-memory database
-	db, err := sql.Open("sqlite3", "file:test.db?cache=shared&mode=memory")
+	// Load configuration
+	cfg := config.MustLoad()
+
+	// Initialize database
+	db, err := sql.Open("sqlite3", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Failed to open database:", err)
+		log.Fatalf("Failed to open database: %v", err)
 	}
 	defer db.Close()
 
+	// Configure connection pool
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+
 	// Run migrations
 	if err := repository.MigrateDB(db); err != nil {
-		log.Fatal("Migration failed:", err)
+		log.Fatalf("Migration failed: %v", err)
 	}
-	fmt.Println("Database migrated successfully!")
 
-	// Test operations
-	testUserOperations(db)
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         cfg.ServerAddress,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
+		// 	Handler:      setupRouter(db, cfg), // The Application router setup function *Commented for now, i'm still doing setup lol
+	}
+
+	log.Printf("Server starting on %s", cfg.ServerAddress)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
 }
 
-func testUserOperations(db *sql.DB) {
-	// Insert test user
-	res, err := db.Exec(`
-		INSERT INTO users 
-		(uuid, nickname, email, password_hash, first_name, last_name, age, gender) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"test-uuid-123", "testuser1", "test1@example.com",
-		"$2a$10$hashedpassword", "John", "Doe", 30, "male")
-	if err != nil {
-		log.Fatal("Insert failed:", err)
-	}
-
-	// Get inserted ID
-	id, _ := res.LastInsertId()
-	fmt.Printf("Inserted user with ID %d\n", id)
-
-	// Query test
-	var nickname string
-	err = db.QueryRow("SELECT nickname FROM users WHERE id = ?", id).Scan(&nickname)
-	if err != nil {
-		log.Fatal("Query failed:", err)
-	}
-	fmt.Println("Found user:", nickname)
-}
+// func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
+// 	return nil
+// }
