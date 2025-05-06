@@ -12,7 +12,7 @@ import (
 var Validate = validator.New()
 
 // DecodeJSONBody decodes a JSON request body into a struct
-func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(dst)
