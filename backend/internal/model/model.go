@@ -50,7 +50,7 @@ type RegisterRequest struct {
 	FirstName string `json:"first_name" validate:"required,alpha,min=2,max=50"`
 	LastName  string `json:"last_name" validate:"required,alpha,min=2,max=50"`
 	Age       int    `json:"age" validate:"required,min=13,max=120"`
-	Gender    string `json:"gender" validate:"required,oneof=male female other"`
+	Gender    string `json:"gender" validate:"required,oneof=male female"`
 }
 
 type LoginRequest struct {
