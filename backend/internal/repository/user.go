@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	domain "real-time-forum/backend/internal/model"
+	domain "real-time/backend/internal/model"
 	"time"
 )
 
@@ -64,7 +64,6 @@ func (r *userRepository) FindByIdentifier(identifier string) (*domain.User, erro
 }
 
 func (r *userRepository) Create(user domain.User) (*domain.User, error) {
-	// First check if user exists
 	exists, err := r.EmailOrNicknameExists(user.Email, user.Nickname)
 	if err != nil {
 		return nil, err
