@@ -90,7 +90,7 @@ func (r *userRepository) Create(user domain.User) (*domain.User, error) {
 	}
 
 	createdUser := user
-	createdUser.ID = int(id)
+	createdUser.ID = id
 	return &createdUser, nil
 }
 
