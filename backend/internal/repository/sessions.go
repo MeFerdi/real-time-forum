@@ -1,10 +1,10 @@
 package repository
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type SessionRepository interface {
@@ -18,15 +18,27 @@ type sessionRepository struct {
 	db *sql.DB
 }
 
+func generateToken() (string, error) {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
 func NewSessionRepository(db *sql.DB) SessionRepository {
 	return &sessionRepository{db: db}
 }
 
 func (r *sessionRepository) Create(userID int64, timeout time.Duration) (string, time.Time, error) {
-	token := uuid.New().String()
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
 	expiresAt := time.Now().Add(timeout)
 
-	_, err := r.db.Exec(
+	_, err = r.db.Exec(
 		`INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)`,
 		userID, token, expiresAt,
 	)
