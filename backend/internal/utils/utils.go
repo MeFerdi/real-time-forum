@@ -1,58 +1,67 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
-
-	"github.com/go-playground/validator/v10"
-	"golang.org/x/crypto/bcrypt"
 )
 
-var Validate = validator.New()
+var (
+	ErrInvalidEmail    = errors.New("invalid email format")
+	ErrInvalidPassword = errors.New("password must be at least 8 characters")
+	emailRegex         = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+)
 
-// DecodeJSONBody decodes a JSON request body into a struct
+func ValidateEmail(email string) error {
+	if !emailRegex.MatchString(strings.ToLower(email)) {
+		return ErrInvalidEmail
+	}
+	return nil
+}
+
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
+		return ErrInvalidPassword
+	}
+	return nil
+}
+
 func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(dst)
 }
 
-// RespondWithError sends an error response
 func RespondWithError(w http.ResponseWriter, code int, message string) {
 	RespondWithJSON(w, code, map[string]string{"error": message})
 }
 
-// RespondWithValidationError handles validation errors
-func RespondWithValidationError(w http.ResponseWriter, err error) {
-	if _, ok := err.(validator.ValidationErrors); ok {
-		RespondWithError(w, http.StatusBadRequest, "Validation failed")
-		return
-	}
-	RespondWithError(w, http.StatusBadRequest, err.Error())
-}
-
-// RespondWithJSON sends a JSON response
-func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func RespondWithJSON(w http.ResponseWriter, code int, payload any) {
 	response, _ := json.Marshal(payload)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(response)
 }
 
-// HashPassword hashes a password using bcrypt
-func HashPassword(password string, cost int) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), cost)
-	return string(bytes), err
+func HashPassword(password string) (string, error) {
+	h := sha256.New()
+	h.Write([]byte(password))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
-// ComparePasswords compares a hashed password with its plaintext version
 func ComparePasswords(hashedPassword, password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	return err == nil
+	h := sha256.New()
+	h.Write([]byte(password))
+	hashedInput := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(hashedPassword), []byte(hashedInput)) == 1
 }
 
-// SetAuthCookie sets the authentication cookie
 func SetAuthCookie(w http.ResponseWriter, token string, expiresAt time.Time, isProduction bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -65,7 +74,6 @@ func SetAuthCookie(w http.ResponseWriter, token string, expiresAt time.Time, isP
 	})
 }
 
-// ClearAuthCookie removes the authentication cookie
 func ClearAuthCookie(w http.ResponseWriter, isProduction bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -78,7 +86,6 @@ func ClearAuthCookie(w http.ResponseWriter, isProduction bool) {
 	})
 }
 
-// GetAuthToken extracts the auth token from request
 func GetAuthToken(r *http.Request) string {
 	cookie, err := r.Cookie("auth_token")
 	if err != nil {
