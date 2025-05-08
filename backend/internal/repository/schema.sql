@@ -63,6 +63,16 @@ CREATE TABLE IF NOT EXISTS post_categories (
     FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
     FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
+INSERT OR IGNORE INTO categories (name) VALUES 
+    ('General'),
+    ('Technology'),
+    ('Sports'),
+    ('Movies'),
+    ('Music'),
+    ('Gaming'),
+    ('Travel'),
+    ('Food');
+
 
 -- Private Messages table
 CREATE TABLE IF NOT EXISTS private_messages (
@@ -101,6 +111,8 @@ CREATE TABLE IF NOT EXISTS likes (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_post_categories_post ON post_categories(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_categories_category ON post_categories(category_id);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
