@@ -1,14 +1,15 @@
 package handler
 
 import (
-	"errors"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
-	"real-time-forum/backend/internal/config"
-	domain "real-time-forum/backend/internal/model"
-	"real-time-forum/backend/internal/repository"
-	"real-time-forum/backend/internal/utils"
+	"real-time/backend/internal/config"
+	domain "real-time/backend/internal/model"
+	"real-time/backend/internal/repository"
+	"real-time/backend/internal/utils"
 )
 
 type AuthHandler struct {
@@ -26,30 +27,45 @@ func NewAuthHandler(cfg *config.Config, userRepo repository.UserRepository, sess
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req domain.RegisterRequest
-	if err := utils.DecodeJSONBody(w, r, &req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if err := utils.Validate.Struct(req); err != nil {
-		utils.RespondWithValidationError(w, err)
+	var req domain.RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Sanitize inputs
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Nickname = strings.TrimSpace(req.Nickname)
+
+	// Validate inputs
+	if err := utils.ValidateEmail(req.Email); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := utils.ValidatePassword(req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	exists, err := h.userRepo.EmailOrNicknameExists(req.Email, req.Nickname)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not check user existence")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 	if exists {
-		utils.RespondWithError(w, http.StatusConflict, "User already exists")
+		http.Error(w, "User already exists", http.StatusConflict)
 		return
 	}
 
-	hashedPassword, err := utils.HashPassword(req.Password, h.cfg.BcryptCost)
+	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not hash password")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -67,19 +83,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	createdUser, err := h.userRepo.Create(user)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not create user")
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
 
 	token, expiresAt, err := h.sessionRepo.Create(int64(createdUser.ID), h.cfg.SessionTimeout)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not create session")
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
 		return
 	}
 
 	utils.SetAuthCookie(w, token, expiresAt, h.cfg.IsProduction())
 
-	utils.RespondWithJSON(w, http.StatusCreated, domain.AuthResponse{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(domain.AuthResponse{
 		User:      createdUser.ToDTO(),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -87,37 +104,40 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req domain.LoginRequest
-	if err := utils.DecodeJSONBody(w, r, &req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	var req domain.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req.Identifier = strings.TrimSpace(strings.ToLower(req.Identifier))
+
 	user, err := h.userRepo.FindByIdentifier(req.Identifier)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			_ = utils.ComparePasswords("$2a$10$fakehash", req.Password) // Prevent timing attack
-			utils.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials")
-			return
-		}
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not find user")
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	if !utils.ComparePasswords(user.PasswordHash, req.Password) {
-		utils.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials")
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	token, expiresAt, err := h.sessionRepo.Create(int64(user.ID), h.cfg.SessionTimeout)
 	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not create session")
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
 		return
 	}
 
 	utils.SetAuthCookie(w, token, expiresAt, h.cfg.IsProduction())
 
-	utils.RespondWithJSON(w, http.StatusOK, domain.AuthResponse{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(domain.AuthResponse{
 		User:      user.ToDTO(),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -125,17 +145,22 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	token := utils.GetAuthToken(r)
 	if token == "" {
-		utils.RespondWithError(w, http.StatusBadRequest, "Missing token")
+		http.Error(w, "No authentication token", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.sessionRepo.Delete(token); err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "Could not logout")
+		http.Error(w, "Failed to logout", http.StatusInternalServerError)
 		return
 	}
 
 	utils.ClearAuthCookie(w, h.cfg.IsProduction())
-	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Logged out"})
+	w.WriteHeader(http.StatusOK)
 }
