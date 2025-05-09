@@ -1,144 +1,39 @@
 package model
 
 import (
-	"errors"
-	"regexp"
-	"strings"
 	"time"
 )
 
-var (
-	ErrInvalidEmail    = errors.New("invalid email format")
-	ErrInvalidPassword = errors.New("password must be 8-72 characters")
-	ErrInvalidNickname = errors.New("nickname must be 3-20 alphanumeric characters")
-	emailRegex         = regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
-)
-
-const (
-	CategoryGeneral    = "General"
-	CategoryTechnology = "Technology"
-	CategorySports     = "Sports"
-	CategoryMovies     = "Movies"
-	CategoryMusic      = "Music"
-	CategoryGaming     = "Gaming"
-	CategoryTravel     = "Travel"
-	CategoryFood       = "Food"
-)
-
-// User represents the application user
+// User represents a user in the system
 type User struct {
-	ID           int64
-	UUID         string
-	Nickname     string
-	Email        string
-	PasswordHash string
-	FirstName    string
-	LastName     string
-	Age          int
-	Gender       string
-	CreatedAt    time.Time
-	LastOnline   time.Time
-	IsOnline     bool
+	ID           int       `json:"id" gorm:"primaryKey"`
+	UUID         string    `json:"uuid" gorm:"unique;not null"`
+	Nickname     string    `json:"nickname" gorm:"unique;not null"`
+	Email        string    `json:"email" gorm:"unique;not null"`
+	PasswordHash string    `json:"-" gorm:"not null"`
+	FirstName    string    `json:"first_name" gorm:"not null"`
+	LastName     string    `json:"last_name" gorm:"not null"`
+	Age          int       `json:"age" gorm:"not null"`
+	Gender       string    `json:"gender" gorm:"not null"`
+	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
+	LastOnline   time.Time `json:"last_online"`
+	IsOnline     bool      `json:"is_online" gorm:"default:false"`
+
+	// Relationships
+	Posts            []Post           `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Comments         []Comment        `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	SentMessages     []PrivateMessage `json:"-" gorm:"foreignKey:SenderID;constraint:OnDelete:CASCADE"`
+	ReceivedMessages []PrivateMessage `json:"-" gorm:"foreignKey:ReceiverID;constraint:OnDelete:CASCADE"`
+	Sessions         []Session        `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Following        []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowerID;joinReferences:FollowingID;constraint:OnDelete:CASCADE"`
+	Followers        []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowingID;joinReferences:FollowerID;constraint:OnDelete:CASCADE"`
 }
 
-// Post represents a user's post
-type Post struct {
-	ID        int64
-	UserID    int64
-	Title     string
-	Content   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-type Category struct {
-	ID   int64
-	Name string
-}
-
-type CategoryDTO struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-func (c *Category) ToDTO() CategoryDTO {
-	return CategoryDTO{
-		ID:   c.ID,
-		Name: c.Name,
-	}
-}
-
-// Comment represents a post comment
-type Comment struct {
-	ID        int64
-	PostID    int64
-	UserID    int64
-	Content   string
-	CreatedAt time.Time
-}
-
-// Session represents user authentication
-type Session struct {
-	ID        int64
-	UserID    int64
-	Token     string
-	ExpiresAt time.Time
-	CreatedAt time.Time
-}
-
-// Request/Response DTOs
-type UserDTO struct {
-	ID         int64     `json:"id"`
-	UUID       string    `json:"uuid"`
-	Nickname   string    `json:"nickname"`
-	Email      string    `json:"email"`
-	FirstName  string    `json:"firstName"`
-	LastName   string    `json:"lastName"`
-	Age        int       `json:"age"`
-	Gender     string    `json:"gender"`
-	CreatedAt  time.Time `json:"createdAt"`
-	IsOnline   bool      `json:"isOnline"`
-	LastOnline time.Time `json:"lastOnline"`
-}
-
-type RegisterRequest struct {
-	Nickname  string `json:"nickname"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Age       int    `json:"age"`
-	Gender    string `json:"gender"`
-}
-
-type LoginRequest struct {
-	Identifier string `json:"identifier"`
-	Password   string `json:"password"`
-}
-
-type AuthResponse struct {
-	User      UserDTO   `json:"user"`
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expiresAt"`
-}
-
-// Helper methods for validation
-func (r *RegisterRequest) Validate() error {
-	if !emailRegex.MatchString(strings.ToLower(r.Email)) {
-		return ErrInvalidEmail
-	}
-	if len(r.Password) < 8 || len(r.Password) > 72 {
-		return ErrInvalidPassword
-	}
-	if len(r.Nickname) < 3 || len(r.Nickname) > 20 {
-		return ErrInvalidNickname
-	}
-	return nil
-}
-
-// DTO conversion
+// ToDTO converts User to UserDTO
 func (u *User) ToDTO() UserDTO {
 	return UserDTO{
 		ID:         u.ID,
+		UUID:       u.UUID,
 		Nickname:   u.Nickname,
 		Email:      u.Email,
 		FirstName:  u.FirstName,
@@ -146,68 +41,183 @@ func (u *User) ToDTO() UserDTO {
 		Age:        u.Age,
 		Gender:     u.Gender,
 		CreatedAt:  u.CreatedAt,
-		IsOnline:   u.IsOnline,
 		LastOnline: u.LastOnline,
+		IsOnline:   u.IsOnline,
 	}
 }
 
-// Request DTOs
-type CreatePostRequest struct {
-	Title    string   `json:"title"`
-	Content  string   `json:"content"`
-	Category []string `json:"categories"`
+// Session represents a user's active session
+type Session struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	UserID    int       `json:"user_id" gorm:"not null;index"`
+	Token     string    `json:"token" gorm:"unique;not null;index"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
-type CreateCommentRequest struct {
-	Content string `json:"content"`
+// Post represents a user-created post
+type Post struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	UserID    int64     `json:"user_id" gorm:"not null;index"`
+	Title     string    `json:"title" gorm:"not null;size:255"`
+	Content   string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	User       *User      `json:"user,omitempty" gorm:"-"`
+	Comments   []Comment  `json:"comments,omitempty" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE"`
+	Categories []Category `json:"categories,omitempty" gorm:"many2many:post_categories;constraint:OnDelete:CASCADE"`
 }
 
-// Response DTOs
+// ToDTO converts Post to PostDTO
+func (p *Post) ToDTO(user UserDTO) PostDTO {
+	return PostDTO{
+		ID:         p.ID,
+		User:       user,
+		Title:      p.Title,
+		Content:    p.Content,
+		CreatedAt:  p.CreatedAt,
+		UpdatedAt:  p.UpdatedAt,
+		Comments:   []CommentDTO{},
+		Categories: []CategoryDTO{},
+	}
+}
+
+// Comment represents a comment on a post
+type Comment struct {
+	ID        int       `json:"id" gorm:"primaryKey"`
+	PostID    int64     `json:"post_id" gorm:"not null;index"`
+	UserID    int64     `json:"user_id" gorm:"not null;index"`
+	Content   string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	// Relationships
+	Post *Post `json:"post,omitempty" gorm:"-"`
+	User *User `json:"user,omitempty" gorm:"-"`
+}
+
+// ToDTO converts Comment to CommentDTO
+func (c *Comment) ToDTO(user UserDTO) CommentDTO {
+	return CommentDTO{
+		ID:        c.ID,
+		User:      user,
+		Content:   c.Content,
+		CreatedAt: c.CreatedAt,
+	}
+}
+
+// PrivateMessage represents a direct message between users
+type PrivateMessage struct {
+	ID         int       `json:"id" gorm:"primaryKey"`
+	SenderID   int64     `json:"sender_id" gorm:"not null;index"`
+	ReceiverID int64     `json:"receiver_id" gorm:"not null;index"`
+	Content    string    `json:"content" gorm:"not null;type:text"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
+	IsRead     bool      `json:"is_read" gorm:"default:false"`
+
+	// Relationships
+	Sender   *User `json:"sender,omitempty" gorm:"-"`
+	Receiver *User `json:"receiver,omitempty" gorm:"-"`
+}
+
+// Category represents a post category
+type Category struct {
+	ID   int    `json:"id" gorm:"primaryKey"`
+	Name string `json:"name" gorm:"unique;not null"`
+}
+
+// ToDTO converts Category to CategoryDTO
+func (c *Category) ToDTO() CategoryDTO {
+	return CategoryDTO{
+		ID:   c.ID,
+		Name: c.Name,
+	}
+}
+
+// PostCategory represents the many-to-many relationship between posts and categories
+type PostCategory struct {
+	PostID     int64 `json:"post_id" gorm:"primaryKey"`
+	CategoryID int64 `json:"category_id" gorm:"primaryKey"`
+}
+
+// DTOs for API responses
+
+// UserDTO is the data transfer object for User
+type UserDTO struct {
+	ID         int       `json:"id"`
+	UUID       string    `json:"uuid"`
+	Nickname   string    `json:"nickname"`
+	Email      string    `json:"email"`
+	FirstName  string    `json:"first_name"`
+	LastName   string    `json:"last_name"`
+	Age        int       `json:"age"`
+	Gender     string    `json:"gender"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastOnline time.Time `json:"last_online"`
+	IsOnline   bool      `json:"is_online"`
+}
+
+// PostDTO is the data transfer object for Post
 type PostDTO struct {
-	ID        int64     `json:"id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	Author    UserDTO   `json:"author"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID         int           `json:"id"`
+	User       UserDTO       `json:"user"`
+	Title      string        `json:"title"`
+	Content    string        `json:"content"`
+	CreatedAt  time.Time     `json:"created_at"`
+	UpdatedAt  time.Time     `json:"updated_at"`
+	Comments   []CommentDTO  `json:"comments"`
+	Categories []CategoryDTO `json:"categories"`
 }
 
+// CommentDTO is the data transfer object for Comment
 type CommentDTO struct {
-	ID        int64     `json:"id"`
+	ID        int       `json:"id"`
+	User      UserDTO   `json:"user"`
 	Content   string    `json:"content"`
-	Author    UserDTO   `json:"author"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-type PostDetailDTO struct {
-	PostDTO
-	Comments []CommentDTO `json:"comments"`
+// CategoryDTO is the data transfer object for Category
+type CategoryDTO struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
+// PostListDTO is the data transfer object for a list of posts
 type PostListDTO struct {
 	Posts      []PostDTO `json:"posts"`
-	TotalPosts int       `json:"totalPosts"`
+	TotalPosts int64     `json:"totalPosts"`
 	Page       int       `json:"page"`
 	PageSize   int       `json:"pageSize"`
 }
 
-// Conversion methods
-func (p *Post) ToDTO(author UserDTO) PostDTO {
-	return PostDTO{
-		ID:        p.ID,
-		Title:     p.Title,
-		Content:   p.Content,
-		Author:    author,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-	}
+// CreatePostRequest is the request body for creating a post
+type CreatePostRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
-func (c *Comment) ToDTO(author UserDTO) CommentDTO {
-	return CommentDTO{
-		ID:        c.ID,
-		Content:   c.Content,
-		Author:    author,
-		CreatedAt: c.CreatedAt,
-	}
+// RegisterRequest is the request body for user registration
+type RegisterRequest struct {
+	Email     string `json:"email"`
+	Nickname  string `json:"nickname"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Age       int    `json:"age"`
+	Gender    string `json:"gender"`
+}
+
+// LoginRequest is the request body for user login
+type LoginRequest struct {
+	Identifier string `json:"identifier"` // Email or nickname
+	Password   string `json:"password"`
+}
+
+// AuthResponse is the response for register and login
+type AuthResponse struct {
+	User      UserDTO   `json:"user"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
