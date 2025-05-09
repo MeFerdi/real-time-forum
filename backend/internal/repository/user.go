@@ -3,8 +3,11 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	domain "real-time/backend/internal/model"
+	"fmt"
 	"time"
+
+	"real-time/backend/internal/model"
+	domain "real-time/backend/internal/model"
 )
 
 var (
@@ -18,6 +21,7 @@ type UserRepository interface {
 	Create(user domain.User) (*domain.User, error)
 	UpdateLastOnline(userID int) error
 	SetOnlineStatus(userID int, online bool) error
+	GetByID(userID int64) (*model.User, error)
 }
 
 type userRepository struct {
@@ -26,6 +30,31 @@ type userRepository struct {
 
 func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{db: db}
+}
+
+func (r *userRepository) GetByID(userID int64) (*model.User, error) {
+	user := &model.User{}
+	err := r.db.QueryRow(
+		`SELECT id, uuid, nickname, email, password_hash, first_name, last_name, 
+                age, gender, created_at, last_online, is_online
+         FROM users 
+         WHERE id = ?`,
+		userID,
+	).Scan(
+		&user.ID, &user.UUID, &user.Nickname, &user.Email,
+		&user.PasswordHash, &user.FirstName, &user.LastName,
+		&user.Age, &user.Gender, &user.CreatedAt,
+		&user.LastOnline, &user.IsOnline,
+	)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving user: %v", err)
+	}
+
+	return user, nil
 }
 
 func (r *userRepository) EmailOrNicknameExists(email, nickname string) (bool, error) {
@@ -90,7 +119,7 @@ func (r *userRepository) Create(user domain.User) (*domain.User, error) {
 	}
 
 	createdUser := user
-	createdUser.ID = id
+	createdUser.ID = int(id)
 	return &createdUser, nil
 }
 
