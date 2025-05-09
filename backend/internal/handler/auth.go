@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"real-time/backend/internal/config"
-	domain "real-time/backend/internal/model"
+	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 	"real-time/backend/internal/utils"
 )
@@ -32,7 +34,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req domain.RegisterRequest
+	var req model.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -69,7 +71,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := domain.User{
+	user := model.User{
+		UUID:         uuid.New().String(),
 		Nickname:     req.Nickname,
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
@@ -96,7 +99,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	utils.SetAuthCookie(w, token, expiresAt, h.cfg.IsProduction())
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(domain.AuthResponse{
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(model.AuthResponse{
 		User:      createdUser.ToDTO(),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -109,7 +113,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req domain.LoginRequest
+	var req model.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -128,6 +132,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.userRepo.SetOnlineStatus(user.ID, true); err != nil {
+		http.Error(w, "Failed to update online status", http.StatusInternalServerError)
+		return
+	}
+
 	token, expiresAt, err := h.sessionRepo.Create(int64(user.ID), h.cfg.SessionTimeout)
 	if err != nil {
 		http.Error(w, "Failed to create session", http.StatusInternalServerError)
@@ -137,7 +146,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	utils.SetAuthCookie(w, token, expiresAt, h.cfg.IsProduction())
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(domain.AuthResponse{
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(model.AuthResponse{
 		User:      user.ToDTO(),
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -154,6 +164,14 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if token == "" {
 		http.Error(w, "No authentication token", http.StatusBadRequest)
 		return
+	}
+
+	userID, err := h.sessionRepo.Get(token)
+	if err == nil && userID > 0 {
+		if err := h.userRepo.SetOnlineStatus(int(userID), false); err != nil {
+			http.Error(w, "Failed to update online status", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if err := h.sessionRepo.Delete(token); err != nil {
