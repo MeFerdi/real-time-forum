@@ -38,5 +38,6 @@ class MessageWebSocket {
     handleNewMessage(message) {
         // Update UI with new message
         // Mark message as read
+        // coming soon
     }
 }
