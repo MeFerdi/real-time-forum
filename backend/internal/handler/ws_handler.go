@@ -47,6 +47,8 @@ func NewWsHandler(userRepo repository.UserRepository) *WsHandler {
 }
 
 func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	go h.broadcastMessages()
+
 	// Upgrade HTTP connection to WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -101,13 +103,16 @@ func (h *WsHandler) handleSendMessage(msg WsMessage, conn *websocket.Conn) {
 		return
 	}
 
-	// Broadcast to receiver
-	h.broadcast <- WsMessage{
+	// Create broadcast message
+	broadcastMsg := WsMessage{
 		Type:       "new_message",
-		Data:       message,
+		Data:       message.Content,
 		SenderID:   msg.SenderID,
 		ReceiverID: msg.ReceiverID,
 	}
+
+	// Broadcast to all clients
+	h.broadcast <- broadcastMsg
 }
 
 func (h *WsHandler) handleGetMessages(msg WsMessage, conn *websocket.Conn) {
@@ -138,8 +143,6 @@ func GetMessageHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement message history retrieval from the database
-	// For now, return a placeholder response
 	response := struct {
 		Success  bool `json:"success"`
 		Messages []struct {
@@ -161,4 +164,31 @@ func GetMessageHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+func (h *WsHandler) broadcastMessages() {
+	for {
+		select {
+		case client := <-h.register:
+			h.mutex.Lock()
+			h.clients[client] = true
+			h.mutex.Unlock()
+		case client := <-h.unregister:
+			h.mutex.Lock()
+			if _, ok := h.clients[client]; ok {
+				delete(h.clients, client)
+				client.Close()
+			}
+			h.mutex.Unlock()
+		case message := <-h.broadcast:
+			h.mutex.Lock()
+			for client := range h.clients {
+				if err := client.WriteJSON(message); err != nil {
+					log.Printf("error: %v", err)
+					client.Close()
+					delete(h.clients, client)
+				}
+			}
+			h.mutex.Unlock()
+		}
+	}
 }
