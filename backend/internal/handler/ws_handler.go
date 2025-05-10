@@ -6,9 +6,10 @@ import (
 	"real-time/backend/internal/repository"
 	"sync"
 
-	"github.com/gorilla/websocket"
 	"encoding/json"
 	"real-time/backend/internal/model"
+
+	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -36,93 +37,92 @@ type WsMessage struct {
 }
 
 func NewWsHandler(userRepo repository.UserRepository) *WsHandler {
-    return &WsHandler{
-        clients:    make(map[*websocket.Conn]bool),
-        broadcast:  make(chan WsMessage),
-        register:   make(chan *websocket.Conn),
-        unregister: make(chan *websocket.Conn),
-        userRepo:   userRepo,
-    }
+	return &WsHandler{
+		clients:    make(map[*websocket.Conn]bool),
+		broadcast:  make(chan WsMessage),
+		register:   make(chan *websocket.Conn),
+		unregister: make(chan *websocket.Conn),
+		userRepo:   userRepo,
+	}
 }
 
 func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    // Upgrade HTTP connection to WebSocket
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        log.Println(err)
-        return
-    }
+	// Upgrade HTTP connection to WebSocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
-    // Handle connection
-    h.register <- conn
-    defer func() {
-        h.unregister <- conn
-        conn.Close()
-    }()
+	// Handle connection
+	h.register <- conn
+	defer func() {
+		h.unregister <- conn
+		conn.Close()
+	}()
 
-    for {
-        messageType, message, err := conn.ReadMessage()
-        if err != nil {
-            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("error: %v", err)
-            }
-            break
-        }
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
+			}
+			break
+		}
 
-        // Handle incoming message
-        var msg WsMessage
-        err = json.Unmarshal(message, &msg)
-        if err != nil {
-            log.Printf("error: %v", err)
-            continue
-        }
+		// Handle incoming message
+		var msg WsMessage
+		err = json.Unmarshal(message, &msg)
+		if err != nil {
+			log.Printf("error: %v", err)
+			continue
+		}
 
-        switch msg.Type {
-        case "send_message":
-            h.handleSendMessage(msg, conn)
-        case "get_messages":
-            h.handleGetMessages(msg, conn)
-        }
-    }
+		switch msg.Type {
+		case "send_message":
+			h.handleSendMessage(msg, conn)
+		case "get_messages":
+			h.handleGetMessages(msg, conn)
+		}
+	}
 }
 
 func (h *WsHandler) handleSendMessage(msg WsMessage, conn *websocket.Conn) {
-    // Create message in database
-    message := model.PrivateMessage{
-        SenderID:   int64(msg.SenderID),
-        ReceiverID: int64(msg.ReceiverID),
-        Content:    msg.Data.(string),
-    }
+	// Create message in database
+	message := model.PrivateMessage{
+		SenderID:   int64(msg.SenderID),
+		ReceiverID: int64(msg.ReceiverID),
+		Content:    msg.Data.(string),
+	}
 
-    err := h.userRepo.CreatePrivateMessage(message)
-    if err != nil {
-        log.Printf("error creating message: %v", err)
-        return
-    }
+	err := h.userRepo.CreatePrivateMessage(message)
+	if err != nil {
+		log.Printf("error creating message: %v", err)
+		return
+	}
 
-    // Broadcast to receiver
-    h.broadcast <- WsMessage{
-        Type:      "new_message",
-        Data:      message,
-        SenderID:  msg.SenderID,
-        ReceiverID: msg.ReceiverID,
-    }
+	// Broadcast to receiver
+	h.broadcast <- WsMessage{
+		Type:       "new_message",
+		Data:       message,
+		SenderID:   msg.SenderID,
+		ReceiverID: msg.ReceiverID,
+	}
 }
 
 func (h *WsHandler) handleGetMessages(msg WsMessage, conn *websocket.Conn) {
-    messages, err := h.userRepo.GetPrivateMessages(msg.SenderID, msg.ReceiverID)
-    if err != nil {
-        log.Printf("error getting messages: %v", err)
-        return
-    }
+	messages, err := h.userRepo.GetPrivateMessages(msg.SenderID, msg.ReceiverID)
+	if err != nil {
+		log.Printf("error getting messages: %v", err)
+		return
+	}
 
-    // Send messages to client
-    err = conn.WriteJSON(WsMessage{
-        Type: "messages_history",
-        Data: messages,
-    })
-    if err != nil {
-        log.Printf("error sending messages: %v", err)
-    }
+	// Send messages to client
+	err = conn.WriteJSON(WsMessage{
+		Type: "messages_history",
+		Data: messages,
+	})
+	if err != nil {
+		log.Printf("error sending messages: %v", err)
+	}
 }
-
