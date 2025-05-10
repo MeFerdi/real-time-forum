@@ -126,3 +126,39 @@ func (h *WsHandler) handleGetMessages(msg WsMessage, conn *websocket.Conn) {
 		log.Printf("error sending messages: %v", err)
 	}
 }
+
+// GetMessageHistory handles HTTP requests for getting message history
+func GetMessageHistory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse query parameters
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement message history retrieval from the database
+	// For now, return a placeholder response
+	response := struct {
+		Success  bool `json:"success"`
+		Messages []struct {
+			ID         int    `json:"id"`
+			Content    string `json:"content"`
+			SenderID   int    `json:"sender_id"`
+			ReceiverID int    `json:"receiver_id"`
+			CreatedAt  string `json:"created_at"`
+		} `json:"messages"`
+	}{
+		Success: true,
+		Messages: []struct {
+			ID         int    `json:"id"`
+			Content    string `json:"content"`
+			SenderID   int    `json:"sender_id"`
+			ReceiverID int    `json:"receiver_id"`
+			CreatedAt  string `json:"created_at"`
+		}{},
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
