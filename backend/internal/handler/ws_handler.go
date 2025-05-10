@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"encoding/json"
+	"real-time/backend/internal/model"
 )
 
 var upgrader = websocket.Upgrader{
@@ -82,6 +83,46 @@ func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         case "get_messages":
             h.handleGetMessages(msg, conn)
         }
+    }
+}
+
+func (h *WsHandler) handleSendMessage(msg WsMessage, conn *websocket.Conn) {
+    // Create message in database
+    message := model.PrivateMessage{
+        SenderID:   int64(msg.SenderID),
+        ReceiverID: int64(msg.ReceiverID),
+        Content:    msg.Data.(string),
+    }
+
+    err := h.userRepo.CreatePrivateMessage(message)
+    if err != nil {
+        log.Printf("error creating message: %v", err)
+        return
+    }
+
+    // Broadcast to receiver
+    h.broadcast <- WsMessage{
+        Type:      "new_message",
+        Data:      message,
+        SenderID:  msg.SenderID,
+        ReceiverID: msg.ReceiverID,
+    }
+}
+
+func (h *WsHandler) handleGetMessages(msg WsMessage, conn *websocket.Conn) {
+    messages, err := h.userRepo.GetPrivateMessages(msg.SenderID, msg.ReceiverID)
+    if err != nil {
+        log.Printf("error getting messages: %v", err)
+        return
+    }
+
+    // Send messages to client
+    err = conn.WriteJSON(WsMessage{
+        Type: "messages_history",
+        Data: messages,
+    })
+    if err != nil {
+        log.Printf("error sending messages: %v", err)
     }
 }
 
