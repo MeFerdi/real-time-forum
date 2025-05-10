@@ -1,4 +1,3 @@
-
 PRAGMA foreign_keys = ON;
 
 -- Users table
@@ -107,6 +106,18 @@ CREATE TABLE IF NOT EXISTS likes (
     UNIQUE(user_id, post_id)
 );
 
+-- messages table
+CREATE TABLE IF NOT EXISTS private_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    receiver_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
@@ -119,3 +130,6 @@ CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sende
 CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_likes_user_post ON likes(user_id, post_id);
+CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
