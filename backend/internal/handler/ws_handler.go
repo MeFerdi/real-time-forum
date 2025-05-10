@@ -31,3 +31,14 @@ type WsMessage struct {
 	SenderID   int         `json:"sender_id"`
 	ReceiverID int         `json:"receiver_id"`
 }
+
+func NewWsHandler(userRepo repository.UserRepository) *WsHandler {
+    return &WsHandler{
+        clients:    make(map[*websocket.Conn]bool),
+        broadcast:  make(chan WsMessage),
+        register:   make(chan *websocket.Conn),
+        unregister: make(chan *websocket.Conn),
+        userRepo:   userRepo,
+    }
+}
+
