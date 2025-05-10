@@ -53,6 +53,11 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	mux.HandleFunc("/api/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
 
+	// websocket handler
+	wsHandler := handler.NewWsHandler(userRepo)
+	mux.HandleFunc("/ws/messages", wsHandler.ServeHTTP)
+	mux.HandleFunc("/api/messages/history", withAuth(sessionRepo, handler.GetMessageHistory))
+
 	// Post routes with auth middleware
 	mux.HandleFunc("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
 	mux.HandleFunc("/api/posts/create", withAuth(sessionRepo, postHandler.CreatePost))
