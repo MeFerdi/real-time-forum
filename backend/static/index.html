@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
+        .message { margin: 5px 0; padding: 5px; border-radius: 5px; }
+        .sent { background-color: #e3f2fd; }
+        .received { background-color: #f5f5f5; }
+        input { width: 70%; padding: 10px; margin-right: 10px; }
+        button { padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Chat</h1>
+    <div id="messages"></div>
+    <div>
+        <input type="text" id="messageInput" placeholder="Type your message">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    <script src="/js/ws-client.js"></script>
+    <script>
+        // Get user ID from URL parameter
+        const userId = new URLSearchParams(window.location.search).get('user_id');
+        if (!userId) {
+            alert('User ID is required');
+            window.location.href = '/?user_id=1';
+        }
+    
+        // Initialize WebSocket connection
+        const ws = new WebSocket(`ws://${window.location.host}/ws/messages`);
+    
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+    
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            handleMessage(message);
+        };
+    
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+        };
+    
+        function handleMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.className = message.sender_id == userId ? 'message sent' : 'message received';
+            newMessage.textContent = message.data;
+            messagesDiv.appendChild(newMessage);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value;
+            
+            if (message.trim()) {
+                ws.send(JSON.stringify({
+                    type: 'send_message',
+                    data: message,
+                    sender_id: parseInt(userId),
+                    receiver_id: userId === 1 ? 2 : 1
+                }));
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+</html>

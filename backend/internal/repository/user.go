@@ -22,6 +22,8 @@ type UserRepository interface {
 	UpdateLastOnline(userID int) error
 	SetOnlineStatus(userID int, online bool) error
 	GetByID(userID int64) (*model.User, error)
+	CreatePrivateMessage(msg model.PrivateMessage) error
+	GetPrivateMessages(senderID, receiverID int) ([]model.PrivateMessage, error)
 }
 
 type userRepository struct {
@@ -137,4 +139,44 @@ func (r *userRepository) SetOnlineStatus(userID int, online bool) error {
 		online, time.Now(), userID,
 	)
 	return err
+}
+
+// Add to user.go
+func (r *userRepository) CreatePrivateMessage(msg model.PrivateMessage) error {
+	_, err := r.db.Exec(
+		`INSERT INTO private_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`,
+		msg.SenderID, msg.ReceiverID, msg.Content,
+	)
+	return err
+}
+
+func (r *userRepository) GetPrivateMessages(senderID, receiverID int) ([]model.PrivateMessage, error) {
+	query := `
+        SELECT id, sender_id, receiver_id, content, created_at, is_read
+        FROM private_messages
+        WHERE (sender_id = ? AND receiver_id = ?)
+           OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY created_at DESC
+        LIMIT 50
+    `
+
+	rows, err := r.db.Query(query, senderID, receiverID, receiverID, senderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []model.PrivateMessage
+	for rows.Next() {
+		var msg model.PrivateMessage
+		if err := rows.Scan(
+			&msg.ID, &msg.SenderID, &msg.ReceiverID,
+			&msg.Content, &msg.CreatedAt, &msg.IsRead,
+		); err != nil {
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
 }

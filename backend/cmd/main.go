@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"real-time/backend/internal/config"
@@ -39,6 +40,29 @@ func main() {
 func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	mux := http.NewServeMux()
 
+	// Serve index.html directly
+	index, err := os.ReadFile("../static/index.html")
+	if err != nil {
+		log.Printf("Error reading index.html: %v", err)
+	}
+
+	// Serve index.html
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(index)
+	})
+
+	// Serve js files
+	mux.HandleFunc("/js/ws-client.js", func(w http.ResponseWriter, r *http.Request) {
+		js, err := os.ReadFile("../static/js/ws-client.js")
+		if err != nil {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Write(js)
+	})
+
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
@@ -47,11 +71,16 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	// Handlers
 	authHandler := handler.NewAuthHandler(cfg, userRepo, sessionRepo)
 	postHandler := handler.NewPostHandler(postRepo, userRepo)
+	wsHandler := handler.NewWsHandler(userRepo)
 
 	// Auth routes
 	mux.HandleFunc("/api/auth/register", authHandler.Register)
 	mux.HandleFunc("/api/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
+
+	// WebSocket handler
+	mux.HandleFunc("/ws/messages", wsHandler.ServeHTTP)
+	mux.HandleFunc("/api/messages/history", withAuth(sessionRepo, handler.GetMessageHistory))
 
 	// Post routes with auth middleware
 	mux.HandleFunc("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
