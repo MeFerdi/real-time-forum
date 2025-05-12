@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
-	"real-time/backend/internal/repository"
 	"sync"
 
-	"encoding/json"
+	"real-time/backend/internal/repository"
+
 	"real-time/backend/internal/model"
 
 	"github.com/gorilla/websocket"
@@ -30,10 +31,10 @@ type WsHandler struct {
 }
 
 type WsMessage struct {
-	Type       string      `json:"type"`
-	Data       interface{} `json:"data"`
-	SenderID   int         `json:"sender_id"`
-	ReceiverID int         `json:"receiver_id"`
+	Type       string `json:"type"`
+	Data       any    `json:"data"`
+	SenderID   int    `json:"sender_id"`
+	ReceiverID int    `json:"receiver_id"`
 }
 
 func NewWsHandler(userRepo repository.UserRepository) *WsHandler {
@@ -89,7 +90,7 @@ func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *WsHandler) handleSendMessage(msg WsMessage, conn *websocket.Conn) {
+func (h *WsHandler) handleSendMessage(msg WsMessage, _ *websocket.Conn) {
 	// Create message in database
 	message := model.PrivateMessage{
 		SenderID:   int64(msg.SenderID),
@@ -165,6 +166,7 @@ func GetMessageHistory(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(response)
 }
+
 func (h *WsHandler) broadcastMessages() {
 	for {
 		select {
