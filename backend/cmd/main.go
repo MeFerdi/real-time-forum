@@ -41,7 +41,7 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	mux := http.NewServeMux()
 
 	// Serve index.html directly
-	index, err := os.ReadFile("../static/index.html")
+	index, err := os.ReadFile("./../frontend/static/main.html")
 	if err != nil {
 		log.Printf("Error reading index.html: %v", err)
 	}
@@ -54,7 +54,7 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 
 	// Serve js files
 	mux.HandleFunc("/js/ws-client.js", func(w http.ResponseWriter, r *http.Request) {
-		js, err := os.ReadFile("../static/js/ws-client.js")
+		js, err := os.ReadFile("./../frontend/static/js/ws-client.js")
 		if err != nil {
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
