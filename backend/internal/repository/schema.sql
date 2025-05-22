@@ -85,16 +85,6 @@ CREATE TABLE IF NOT EXISTS private_messages (
     FOREIGN KEY(receiver_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- User Followers junction table
-CREATE TABLE IF NOT EXISTS user_followers (
-    follower_id INTEGER NOT NULL,
-    following_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (follower_id, following_id),
-    FOREIGN KEY(follower_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY(following_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 -- Likes table
 CREATE TABLE IF NOT EXISTS likes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,19 +95,6 @@ CREATE TABLE IF NOT EXISTS likes (
     FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
     UNIQUE(user_id, post_id)
 );
-
--- messages table
-CREATE TABLE IF NOT EXISTS private_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender_id INTEGER NOT NULL,
-    receiver_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_read BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
@@ -130,6 +107,3 @@ CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sende
 CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
 CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_likes_user_post ON likes(user_id, post_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
