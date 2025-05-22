@@ -25,8 +25,6 @@ type User struct {
 	SentMessages     []PrivateMessage `json:"-" gorm:"foreignKey:SenderID;constraint:OnDelete:CASCADE"`
 	ReceivedMessages []PrivateMessage `json:"-" gorm:"foreignKey:ReceiverID;constraint:OnDelete:CASCADE"`
 	Sessions         []Session        `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	Following        []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowerID;joinReferences:FollowingID;constraint:OnDelete:CASCADE"`
-	Followers        []*User          `json:"-" gorm:"many2many:user_followers;joinForeignKey:FollowingID;joinReferences:FollowerID;constraint:OnDelete:CASCADE"`
 }
 
 // ToDTO converts User to UserDTO
@@ -203,8 +201,8 @@ type RegisterRequest struct {
 	Email     string `json:"email"`
 	Nickname  string `json:"nickname"`
 	Password  string `json:"password"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 	Age       int    `json:"age"`
 	Gender    string `json:"gender"`
 }
