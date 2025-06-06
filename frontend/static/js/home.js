@@ -1,23 +1,45 @@
-
 function renderHome() {
-    document.getElementById('app').innerHTML = `
-        <div class="flex items-center justify-center min-h-screen">
-            <div class="bg-white p-8 rounded shadow-md w-full max-w-md space-y-4 text-center">
-                <h2 class="text-2xl font-bold mb-4">Welcome Home!</h2>
-                <p class="mb-4">You are logged in.</p>
-                <button id="logout-btn" class="bg-red-500 text-white p-2 rounded">Logout</button>
-            </div>
-        </div>
-    `;
-    document.getElementById('logout-btn').onclick = function() {
-        if (window.authService) {
-            window.authService.logout();
-        }
-        window.location.hash = '#login';
-        if (typeof renderLogin === 'function') {
-            renderLogin();
+
+    window.logout = async function() {
+        try {
+            // Clear local storage and any auth tokens
+            localStorage.removeItem('token');
+            
+            // Close WebSocket connection if it exists
+            if (window.authService && window.authService.ws) {
+                window.authService.ws.close();
+            }
+
+            // Call the backend logout endpoint if needed
+            const response = await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Logout failed:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            // Always redirect to login page and clean up state
+            if (window.authService) {
+                window.authService.token = null;
+                window.authService.userId = null;
+                window.authService.nickname = '';
+            }
+            window.location.hash = '#login';
+            if (typeof renderLogin === 'function') {
+                renderLogin();
+            }
         }
     };
+
+    // Initial render
+    render();
 }
 
 // Make renderHome globally accessible
