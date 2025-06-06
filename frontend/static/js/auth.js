@@ -91,7 +91,8 @@ class AuthService {
     }
 }
 
-export const authService = new AuthService();
+// Remove export keyword to avoid ES module syntax error
+const authService = new AuthService();
 
 // Minimal JS for signup and login
 
@@ -190,7 +191,12 @@ function renderLogin() {
                 body: JSON.stringify(data)
             });
             if (res.ok) {
-                document.getElementById('login-error').textContent = 'Login successful!';
+                // On successful login, render the Home page
+                if (typeof renderHome === 'function') {
+                    renderHome();
+                } else if (window.renderHome) {
+                    window.renderHome();
+                }
             } else {
                 const err = await res.json();
                 document.getElementById('login-error').textContent = err.error || 'Login failed';
