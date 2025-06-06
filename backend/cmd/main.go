@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-	"os"
+	// "os"
 	"strings"
 
 	"real-time/backend/internal/config"
@@ -40,28 +40,22 @@ func main() {
 func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	mux := http.NewServeMux()
 
-	// Serve index.html directly
-	index, err := os.ReadFile("./../frontend/static/main.html")
-	if err != nil {
-		log.Printf("Error reading index.html: %v", err)
-	}
+	// Create static file handler with proper MIME types
+	staticFileHandler := http.FileServer(http.Dir("../frontend/static"))
+	staticHandler := http.StripPrefix("/", staticFileHandler)
 
-	// Serve index.html
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(index)
-	})
-
-	// Serve js files
-	mux.HandleFunc("/js/ws-client.js", func(w http.ResponseWriter, r *http.Request) {
-		js, err := os.ReadFile("./../frontend/static/js/ws-client.js")
-		if err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-			return
+	// Handle static files with proper MIME types
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if it's a JavaScript file
+		if strings.HasSuffix(r.URL.Path, ".js") {
+			w.Header().Set("Content-Type", "application/javascript")
+		} else if strings.HasSuffix(r.URL.Path, ".css") {
+			w.Header().Set("Content-Type", "text/css")
+		} else if strings.HasSuffix(r.URL.Path, ".html") {
+			w.Header().Set("Content-Type", "text/html")
 		}
-		w.Header().Set("Content-Type", "application/javascript")
-		w.Write(js)
-	})
+		staticHandler.ServeHTTP(w, r)
+	}))
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -85,7 +79,7 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	// Post routes with auth middleware
 	mux.HandleFunc("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
 	mux.HandleFunc("/api/posts/create", withAuth(sessionRepo, postHandler.CreatePost))
-	mux.HandleFunc("/api/posts/by-user", withAuth(sessionRepo, postHandler.GetPostsByUserID)) // New route
+	mux.HandleFunc("/api/posts/by-user", withAuth(sessionRepo, postHandler.GetPostsByUserID))
 	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/api/posts/") {
 			http.NotFound(w, r)
