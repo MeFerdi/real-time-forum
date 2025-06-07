@@ -19,7 +19,7 @@ function renderHome() {
                                 <button class="nav-btn text-gray-300 hover:text-gray-100" onclick="switchView('profile')">
                                     👤 Profile
                                 </button>
-                                <button class="nav-btn text-gray-300 hover:text-gray-100" onclick="switchView('createPost')">
+                                <button class="nav-btn text-gray-300 hover:text-gray-100" onclick="renderCreatePost()">
                                     ✍️ Create Post
                                 </button>
                             </nav>
@@ -35,12 +35,100 @@ function renderHome() {
                 <!-- Main Content -->
                 <div class="max-w-6xl mx-auto px-4 py-6">
                     <div id="main-content">
-                        <!-- Content will be dynamically loaded here -->
+                        <div id="feed">
+                            <!-- Posts will be dynamically loaded here -->
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+
+        loadFeed();
     }
+
+    async function loadFeed() {
+        try {
+            const response = await fetch('/api/posts', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load feed');
+            }
+
+            const posts = await response.json();
+            const feedElement = document.getElementById('feed');
+            feedElement.innerHTML = posts.map(post => `
+                <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                    <h3 class="text-lg font-bold">${post.title}</h3>
+                    <p class="text-sm text-gray-600">${post.content}</p>
+                    <p class="text-xs text-gray-500">Categories: ${post.categories.join(', ')}</p>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading feed:', error);
+        }
+    }
+
+    window.renderCreatePost = function() {
+        document.getElementById('main-content').innerHTML = `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold mb-4">Create a Post</h2>
+                <form id="create-post-form">
+                    <div class="mb-4">
+                        <label for="post-title" class="block text-sm font-medium text-gray-700">Title</label>
+                        <input type="text" id="post-title" name="title" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="post-content" class="block text-sm font-medium text-gray-700">Content</label>
+                        <textarea id="post-content" name="content" rows="4" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="post-categories" class="block text-sm font-medium text-gray-700">Categories</label>
+                        <input type="text" id="post-categories" name="categories" placeholder="Comma-separated categories" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Submit</button>
+                </form>
+            </div>
+        `;
+
+        document.getElementById('create-post-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const title = document.getElementById('post-title').value;
+            const content = document.getElementById('post-content').value;
+            const categories = document.getElementById('post-categories').value.split(',').map(cat => cat.trim());
+
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        categories
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create post');
+                }
+
+                alert('Post created successfully!');
+                loadFeed();
+            } catch (error) {
+                console.error('Error creating post:', error);
+                alert('Failed to create post. Please try again.');
+            }
+        });
+    };
 
     // Global functions
     window.logout = async function() {
