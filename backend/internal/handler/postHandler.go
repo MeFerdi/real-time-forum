@@ -24,26 +24,35 @@ func NewPostHandler(postRepo repository.PostRepository, userRepo repository.User
 }
 
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	var req model.CreatePostRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userID := r.Context().Value("userID").(int64)
+	var req struct {
+		UserID     int64    `json:"userId"`
+		Title      string   `json:"title"`
+		Content    string   `json:"content"`
+		CategoryIDs []int64 `json:"categoryIds"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
 	post := &model.Post{
-		UserID:  userID,
+		UserID:  req.UserID,
 		Title:   req.Title,
 		Content: req.Content,
 	}
 
-	if err := h.postRepo.Create(post, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.postRepo.Create(post, req.CategoryIDs); err != nil {
+		http.Error(w, "Failed to create post", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(post)
 }
 
 func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
@@ -271,4 +280,36 @@ func (h *PostHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
+	offset := 0
+	limit := 10
+
+	posts, _, err := h.postRepo.List(offset, limit)
+	if err != nil {
+		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(posts)
+}
+
+func (h *PostHandler) GetComments(w http.ResponseWriter, r *http.Request) {
+	postIDStr := r.URL.Query().Get("postId")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	comments, err := h.postRepo.GetComments(postID)
+	if err != nil {
+		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(comments)
 }
