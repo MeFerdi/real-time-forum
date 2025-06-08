@@ -30,12 +30,16 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
+    title TEXT,
     content TEXT NOT NULL,
+    image_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Create an index on user_id for better query performance
+CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
 
 -- Comments table
 CREATE TABLE IF NOT EXISTS comments (
@@ -48,13 +52,17 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
+
 -- Categories table
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL
 );
 
--- Post-Category junction table
+-- Post Categories (junction table)
 CREATE TABLE IF NOT EXISTS post_categories (
     post_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
@@ -62,16 +70,10 @@ CREATE TABLE IF NOT EXISTS post_categories (
     FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
     FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
-INSERT OR IGNORE INTO categories (name) VALUES 
-    ('General'),
-    ('Technology'),
-    ('Sports'),
-    ('Movies'),
-    ('Music'),
-    ('Gaming'),
-    ('Travel'),
-    ('Food');
 
+-- Create indexes for the junction table
+CREATE INDEX IF NOT EXISTS idx_post_categories_post_id ON post_categories(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_categories_category_id ON post_categories(category_id);
 
 -- Private Messages table
 CREATE TABLE IF NOT EXISTS private_messages (
@@ -85,7 +87,11 @@ CREATE TABLE IF NOT EXISTS private_messages (
     FOREIGN KEY(receiver_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- User Followers junction table
+-- Create indexes for private messages
+CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
+
+-- User followers (self-referencing many-to-many relationship)
 CREATE TABLE IF NOT EXISTS user_followers (
     follower_id INTEGER NOT NULL,
     following_id INTEGER NOT NULL,
@@ -95,41 +101,6 @@ CREATE TABLE IF NOT EXISTS user_followers (
     FOREIGN KEY(following_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Likes table
-CREATE TABLE IF NOT EXISTS likes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    post_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    UNIQUE(user_id, post_id)
-);
-
--- messages table
-CREATE TABLE IF NOT EXISTS private_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender_id INTEGER NOT NULL,
-    receiver_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_read BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
-CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_post_categories_post ON post_categories(post_id);
-CREATE INDEX IF NOT EXISTS idx_post_categories_category ON post_categories(category_id);
-CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
-CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_likes_user_post ON likes(user_id, post_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_sender ON private_messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);
-CREATE INDEX IF NOT EXISTS idx_private_messages_created ON private_messages(created_at);
+-- Create indexes for followers
+CREATE INDEX IF NOT EXISTS idx_user_followers_follower ON user_followers(follower_id);
+CREATE INDEX IF NOT EXISTS idx_user_followers_following ON user_followers(following_id);
