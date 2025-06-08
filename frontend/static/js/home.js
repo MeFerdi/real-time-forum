@@ -136,8 +136,11 @@ function renderHome() {
                             👤
                         </div>
                         <div class="ml-3">
-                            <h3 class="text-lg font-bold">${post.title || ''}</h3>
-                            <span class="text-xs text-gray-500">${new Date(post.createdAt).toLocaleString()}</span>
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-sm font-medium text-gray-700">@${post.user.nickname}</span>
+                                <span class="text-xs text-gray-500">${new Date(post.createdAt).toLocaleString()}</span>
+                            </div>
+                            <h3 class="text-lg font-bold mt-1">${post.title || ''}</h3>
                         </div>
                     </div>
                     <p class="text-sm text-gray-600">${post.content}</p>
