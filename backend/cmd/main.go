@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+
 	// "os"
 	"strings"
 
@@ -44,6 +45,9 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	staticFileHandler := http.FileServer(http.Dir("../frontend/static"))
 	staticHandler := http.StripPrefix("/", staticFileHandler)
 
+	// Create uploads file handler
+	uploadsHandler := http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads")))
+
 	// Handle static files with proper MIME types
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a JavaScript file
@@ -56,6 +60,9 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 		}
 		staticHandler.ServeHTTP(w, r)
 	}))
+
+	// Handle uploaded files
+	mux.Handle("/uploads/", uploadsHandler)
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
