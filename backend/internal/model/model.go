@@ -55,52 +55,66 @@ type Session struct {
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
-// Post represents a user-created post
+// Post represents a forum post
 type Post struct {
-	ID        int       `json:"id" gorm:"primaryKey"`
-	UserID    int64     `json:"user_id" gorm:"not null;index"`
-	Title     string    `json:"title" gorm:"not null;size:255"`
-	Content   string    `json:"content" gorm:"not null;type:text"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID         int       `json:"id" gorm:"primaryKey"`
+	UserID     int       `json:"userId" gorm:"not null"`
+	Title      string    `json:"title"`
+	Content    string    `json:"content" gorm:"not null"`
+	ImageURL   string    `json:"imageUrl,omitempty"`
+	Categories []string  `json:"categories" gorm:"-"`
+	CreatedAt  time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	UpdatedAt  time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
 
 	// Relationships
-	User       *User      `json:"user,omitempty" gorm:"-"`
-	Comments   []Comment  `json:"comments,omitempty" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE"`
-	Categories []Category `json:"categories,omitempty" gorm:"many2many:post_categories;constraint:OnDelete:CASCADE"`
+	User     User      `json:"-" gorm:"foreignKey:UserID"`
+	Comments []Comment `json:"-" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE"`
 }
 
 // ToDTO converts Post to PostDTO
 func (p *Post) ToDTO(user UserDTO) PostDTO {
 	return PostDTO{
 		ID:         p.ID,
+		UserID:     p.UserID,
 		User:       user,
 		Title:      p.Title,
 		Content:    p.Content,
+		ImageURL:   p.ImageURL,
+		Categories: p.Categories,
 		CreatedAt:  p.CreatedAt,
 		UpdatedAt:  p.UpdatedAt,
-		Comments:   []CommentDTO{},
-		Categories: []CategoryDTO{},
 	}
 }
 
 // Comment represents a comment on a post
 type Comment struct {
 	ID        int       `json:"id" gorm:"primaryKey"`
-	PostID    int64     `json:"post_id" gorm:"not null;index"`
-	UserID    int64     `json:"user_id" gorm:"not null;index"`
-	Content   string    `json:"content" gorm:"not null;type:text"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	PostID    int       `json:"postId" gorm:"not null"`
+	UserID    int       `json:"userId" gorm:"not null"`
+	Content   string    `json:"content" gorm:"not null"`
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
 
 	// Relationships
-	Post *Post `json:"post,omitempty" gorm:"-"`
-	User *User `json:"user,omitempty" gorm:"-"`
+	User User `json:"-" gorm:"foreignKey:UserID"`
+	Post Post `json:"-" gorm:"foreignKey:PostID"`
 }
+
+// CommentDTO represents the data transfer object for a comment
+// type CommentDTO struct {
+// 	ID        int       `json:"id"`
+// 	PostID    int       `json:"postId"`
+// 	UserID    int       `json:"userId"`
+// 	User      UserDTO   `json:"user"`
+// 	Content   string    `json:"content"`
+// 	CreatedAt time.Time `json:"createdAt"`
+// }
 
 // ToDTO converts Comment to CommentDTO
 func (c *Comment) ToDTO(user UserDTO) CommentDTO {
 	return CommentDTO{
 		ID:        c.ID,
+		PostID:    c.PostID,
+		UserID:    c.UserID,
 		User:      user,
 		Content:   c.Content,
 		CreatedAt: c.CreatedAt,
@@ -160,22 +174,26 @@ type UserDTO struct {
 
 // PostDTO is the data transfer object for Post
 type PostDTO struct {
-	ID         int           `json:"id"`
-	User       UserDTO       `json:"user"`
-	Title      string        `json:"title"`
-	Content    string        `json:"content"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
-	Comments   []CommentDTO  `json:"comments"`
-	Categories []CategoryDTO `json:"categories"`
+	ID         int          `json:"id"`
+	UserID     int          `json:"userId"`
+	User       UserDTO      `json:"user"`
+	Title      string       `json:"title"`
+	Content    string       `json:"content"`
+	ImageURL   string       `json:"imageUrl,omitempty"`
+	CreatedAt  time.Time    `json:"createdAt"`
+	UpdatedAt  time.Time    `json:"updatedAt"`
+	Comments   []CommentDTO `json:"comments,omitempty"`
+	Categories []string     `json:"categories"`
 }
 
 // CommentDTO is the data transfer object for Comment
 type CommentDTO struct {
 	ID        int       `json:"id"`
+	PostID    int       `json:"postId"`
+	UserID    int       `json:"userId"`
 	User      UserDTO   `json:"user"`
 	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // CategoryDTO is the data transfer object for Category
