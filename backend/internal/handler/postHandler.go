@@ -77,9 +77,17 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Generate unique filename
+		// Generate unique filename and ensure uploads directory exists
 		filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), header.Filename)
-		filepath := path.Join("uploads", filename)
+		uploadsDir := "uploads"
+		if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+			log.Printf("Error creating uploads directory: %v", err)
+			http.Error(w, "Failed to create uploads directory", http.StatusInternalServerError)
+			return
+		}
+
+		filepath := path.Join(uploadsDir, filename)
+		log.Printf("Saving file to: %s", filepath)
 
 		// Save file
 		out, err := os.Create(filepath)
