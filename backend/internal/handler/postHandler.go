@@ -26,14 +26,16 @@ func getUserIDFromContext(ctx context.Context) int {
 }
 
 type PostHandler struct {
-	postRepo repository.PostRepository
-	userRepo repository.UserRepository
+	postRepo  repository.PostRepository
+	userRepo  repository.UserRepository
+	wsHandler *WsHandler
 }
 
-func NewPostHandler(postRepo repository.PostRepository, userRepo repository.UserRepository) *PostHandler {
+func NewPostHandler(postRepo repository.PostRepository, userRepo repository.UserRepository, wsHandler *WsHandler) *PostHandler {
 	return &PostHandler{
-		postRepo: postRepo,
-		userRepo: userRepo,
+		postRepo:  postRepo,
+		userRepo:  userRepo,
+		wsHandler: wsHandler,
 	}
 }
 
@@ -176,7 +178,28 @@ func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
 		PageSize:   limit,
 	}
 
+	// Add userID context for reaction info
+	userID := getUserIDFromContext(r.Context())
 	for _, post := range posts {
+		// Get reaction counts
+		likes, dislikes, err := h.postRepo.GetPostReactions(post.ID)
+		if err != nil {
+			log.Printf("Failed to get reactions for post %d: %v", post.ID, err)
+			continue
+		}
+		post.LikeCount = likes
+		post.DislikeCount = dislikes
+
+		// Get user's reaction if they're logged in
+		if userID > 0 {
+			userReaction, err := h.postRepo.GetUserReaction(post.ID, userID)
+			if err != nil {
+				log.Printf("Failed to get user reaction for post %d: %v", post.ID, err)
+				continue
+			}
+			post.UserReaction = userReaction
+		}
+
 		user, err := h.userRepo.GetByID(post.UserID)
 		if err != nil {
 			log.Printf("Error fetching user for post %d: %v", post.ID, err)
@@ -288,6 +311,26 @@ func (h *PostHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add reaction info
+	userID := getUserIDFromContext(r.Context())
+	likes, dislikes, err := h.postRepo.GetPostReactions(post.ID)
+	if err != nil {
+		http.Error(w, "Failed to get reaction counts", http.StatusInternalServerError)
+		return
+	}
+	post.LikeCount = likes
+	post.DislikeCount = dislikes
+
+	// Get user's reaction if they're logged in
+	if userID > 0 {
+		userReaction, err := h.postRepo.GetUserReaction(post.ID, userID)
+		if err != nil {
+			http.Error(w, "Failed to get user reaction", http.StatusInternalServerError)
+			return
+		}
+		post.UserReaction = userReaction
+	}
+
 	// Create response DTO
 	response := post.ToDTO(user.ToDTO())
 	response.Comments = make([]model.CommentDTO, 0, len(comments))
@@ -363,6 +406,13 @@ func (h *PostHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 	// Create response DTO
 	response := comment.ToDTO(user.ToDTO())
 
+	// Broadcast comment added event via WebSocket
+	h.broadcastPostUpdate(h.wsHandler, WsMessage{
+		Type:   "comment_added",
+		Data:   response,
+		PostID: comment.PostID,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -421,4 +471,232 @@ func (h *PostHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *PostHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/posts/comments/"), "/")
+	if len(pathParts) < 1 {
+		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	commentID, err := strconv.ParseInt(pathParts[0], 10, 64)
+	if err != nil || commentID <= 0 {
+		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Content == "" {
+		http.Error(w, "Comment content is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get userID from context
+	contextUserID := r.Context().Value("userID").(int64)
+
+	// Get existing comment
+	comment, err := h.postRepo.GetCommentByID(int(commentID))
+	if err != nil {
+		http.Error(w, "Failed to get comment", http.StatusInternalServerError)
+		return
+	}
+	if comment == nil {
+		http.Error(w, "Comment not found", http.StatusNotFound)
+		return
+	}
+
+	// Ensure user owns the comment
+	if comment.UserID != int(contextUserID) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Update comment
+	comment.Content = req.Content
+	if err := h.postRepo.UpdateComment(comment); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get user info for response
+	user, err := h.userRepo.GetByID(int(contextUserID))
+	if err != nil {
+		http.Error(w, "Failed to retrieve user information", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Create response DTO
+	response := comment.ToDTO(user.ToDTO())
+
+	// Broadcast comment update
+	h.broadcastPostUpdate(h.wsHandler, WsMessage{
+		Type:   "comment_updated",
+		Data:   response,
+		PostID: comment.PostID,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *PostHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/posts/comments/"), "/")
+	if len(pathParts) < 1 {
+		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	commentID, err := strconv.ParseInt(pathParts[0], 10, 64)
+	if err != nil || commentID <= 0 {
+		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get userID from context
+	contextUserID := r.Context().Value("userID").(int64)
+
+	// Get existing comment
+	comment, err := h.postRepo.GetCommentByID(int(commentID))
+	if err != nil {
+		http.Error(w, "Failed to get comment", http.StatusInternalServerError)
+		return
+	}
+	if comment == nil {
+		http.Error(w, "Comment not found", http.StatusNotFound)
+		return
+	}
+
+	// Ensure user owns the comment
+	if comment.UserID != int(contextUserID) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	postID := comment.PostID
+
+	// Delete comment
+	if err := h.postRepo.DeleteComment(int(commentID)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast comment deletion
+	h.broadcastPostUpdate(h.wsHandler, WsMessage{
+		Type:   "comment_deleted",
+		Data:   commentID,
+		PostID: postID,
+	})
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *PostHandler) HandlePostReaction(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/posts/"), "/")
+	if len(pathParts) < 2 || pathParts[1] != "react" {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+
+	postID, err := strconv.Atoi(pathParts[0])
+	if err != nil || postID <= 0 {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	userID := getUserIDFromContext(r.Context())
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		ReactionType string `json:"reactionType"` // "like" or "dislike" or ""
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check if the post exists
+	post, err := h.postRepo.GetByID(postID)
+	if err != nil {
+		http.Error(w, "Failed to get post", http.StatusInternalServerError)
+		return
+	}
+	if post == nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	// Handle the reaction
+	if req.ReactionType == "" {
+		// Remove reaction
+		if err := h.postRepo.RemoveReaction(postID, userID); err != nil {
+			http.Error(w, "Failed to remove reaction", http.StatusInternalServerError)
+			return
+		}
+	} else if req.ReactionType == "like" || req.ReactionType == "dislike" {
+		// Add/update reaction
+		if err := h.postRepo.AddReaction(postID, userID, req.ReactionType); err != nil {
+			http.Error(w, "Failed to add reaction", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.Error(w, "Invalid reaction type", http.StatusBadRequest)
+		return
+	}
+
+	// Get updated reaction counts
+	likes, dislikes, err := h.postRepo.GetPostReactions(postID)
+	if err != nil {
+		http.Error(w, "Failed to get reaction counts", http.StatusInternalServerError)
+		return
+	}
+
+	// Get user reaction
+	userReaction, err := h.postRepo.GetUserReaction(postID, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user reaction", http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast reaction update
+	h.broadcastPostUpdate(h.wsHandler, WsMessage{
+		Type: "post_reactions_updated",
+		Data: map[string]interface{}{
+			"postID":       postID,
+			"likeCount":    likes,
+			"dislikeCount": dislikes,
+			"userID":       userID,
+			"userReaction": userReaction,
+		},
+	})
+
+	// Return updated counts in response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"likeCount":    likes,
+		"dislikeCount": dislikes,
+		"userReaction": userReaction,
+	})
+}
+
+// Helper function to broadcast post updates via WebSocket
+func (h *PostHandler) broadcastPostUpdate(wsHandler *WsHandler, message WsMessage) {
+	if wsHandler != nil {
+		wsHandler.broadcast <- message
+	}
 }
