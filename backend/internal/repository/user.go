@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"real-time/backend/internal/model"
@@ -21,7 +20,7 @@ type UserRepository interface {
 	Create(user domain.User) (*domain.User, error)
 	UpdateLastOnline(userID int) error
 	SetOnlineStatus(userID int, online bool) error
-	GetByID(userID int64) (*model.User, error)
+	GetByID(id int) (*model.User, error)
 	CreatePrivateMessage(msg model.PrivateMessage) error
 	GetPrivateMessages(senderID, receiverID int) ([]model.PrivateMessage, error)
 }
@@ -34,28 +33,21 @@ func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) GetByID(userID int64) (*model.User, error) {
+func (r *userRepository) GetByID(id int) (*model.User, error) {
 	user := &model.User{}
-	err := r.db.QueryRow(
-		`SELECT id, uuid, nickname, email, password_hash, first_name, last_name, 
-                age, gender, created_at, last_online, is_online
-         FROM users 
-         WHERE id = ?`,
-		userID,
-	).Scan(
-		&user.ID, &user.UUID, &user.Nickname, &user.Email,
-		&user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.Age, &user.Gender, &user.CreatedAt,
-		&user.LastOnline, &user.IsOnline,
+	err := r.db.QueryRow(`
+        SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online 
+        FROM users WHERE id = ?`, id).Scan(
+		&user.ID, &user.UUID, &user.Nickname, &user.Email, &user.PasswordHash,
+		&user.FirstName, &user.LastName, &user.Age, &user.Gender,
+		&user.CreatedAt, &user.LastOnline, &user.IsOnline,
 	)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving user: %v", err)
+		return nil, err
 	}
-
 	return user, nil
 }
 

@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"real-time/backend/internal/model"
@@ -10,12 +11,12 @@ import (
 
 type PostRepository interface {
 	Create(post *model.Post, categoryIDs []int64) error
-	GetByID(id int64) (*model.Post, error)
+	GetByID(id int) (*model.Post, error)
+	GetByUserID(userID int, offset, limit int) ([]*model.Post, int, error)
 	List(offset, limit int) ([]*model.Post, int, error)
+	GetComments(postID int) ([]*model.Comment, error)
+	GetCategories(postID int) ([]string, error)
 	AddComment(comment *model.Comment) error
-	GetComments(postID int64) ([]*model.Comment, error)
-	GetCategories(postID int64) ([]*model.Category, error)
-	GetByUserID(userID int64, offset, limit int) ([]*model.Post, int, error) // Updated signature
 }
 
 type postRepository struct {
@@ -29,52 +30,76 @@ func NewPostRepository(db *sql.DB) PostRepository {
 func (r *postRepository) Create(post *model.Post, categoryIDs []int64) error {
 	tx, err := r.db.Begin()
 	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
 		return err
 	}
 	defer tx.Rollback()
 
 	result, err := tx.Exec(
-		`INSERT INTO posts (user_id, title, content, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?)`,
-		post.UserID, post.Title, post.Content, time.Now(), time.Now(),
+		`INSERT INTO posts (user_id, title, content, image_url, created_at, updated_at) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+		post.UserID, post.Title, post.Content, post.ImageURL, time.Now(), time.Now(),
 	)
 	if err != nil {
+		log.Printf("Error inserting post: %v", err)
 		return err
 	}
 
 	postID, err := result.LastInsertId()
 	if err != nil {
+		log.Printf("Error getting last insert ID: %v", err)
 		return err
 	}
 
-	for _, catID := range categoryIDs {
-		_, err = tx.Exec(
-			"INSERT INTO post_categories (post_id, category_id) VALUES (?, ?)",
-			postID, catID,
+	log.Printf("Post inserted with ID: %d", postID) // Debugging log
+
+	for _, categoryID := range categoryIDs {
+		_, err := tx.Exec(
+			`INSERT INTO post_categories (post_id, category_id) VALUES (?, ?)`,
+			postID, categoryID,
 		)
 		if err != nil {
+			log.Printf("Error inserting category %d for post %d: %v", categoryID, postID, err)
 			return err
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+
+	post.ID = int(postID)
+	log.Printf("Successfully created post with ID: %d", postID)
+	return nil
 }
 
-func (r *postRepository) GetByID(id int64) (*model.Post, error) {
+func (r *postRepository) GetByID(id int) (*model.Post, error) {
 	post := &model.Post{}
-	err := r.db.QueryRow(
-		`SELECT id, user_id, title, content, created_at, updated_at 
-         FROM posts WHERE id = ?`, id,
-	).Scan(&post.ID, &post.UserID, &post.Title,
-		&post.Content, &post.CreatedAt, &post.UpdatedAt)
-
+	err := r.db.QueryRow(`
+        SELECT id, user_id, title, content, image_url, created_at, updated_at 
+        FROM posts WHERE id = ?`, id).Scan(
+		&post.ID, &post.UserID, &post.Title, &post.Content, &post.ImageURL,
+		&post.CreatedAt, &post.UpdatedAt,
+	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return post, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Get categories
+	categories, err := r.GetCategories(id)
+	if err != nil {
+		return nil, err
+	}
+	post.Categories = categories
+
+	return post, nil
 }
 
-func (r *postRepository) GetByUserID(userID int64, offset, limit int) ([]*model.Post, int, error) {
+func (r *postRepository) GetByUserID(userID int, offset, limit int) ([]*model.Post, int, error) {
 	// Count total posts for the user
 	var total int
 	err := r.db.QueryRow(
@@ -87,7 +112,7 @@ func (r *postRepository) GetByUserID(userID int64, offset, limit int) ([]*model.
 
 	// Query posts with pagination
 	query := `
-        SELECT id, user_id, title, content, created_at, updated_at
+        SELECT id, user_id, title, content, image_url, created_at, updated_at
         FROM posts
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -107,6 +132,7 @@ func (r *postRepository) GetByUserID(userID int64, offset, limit int) ([]*model.
 			&post.UserID,
 			&post.Title,
 			&post.Content,
+			&post.ImageURL,
 			&post.CreatedAt,
 			&post.UpdatedAt,
 		); err != nil {
@@ -123,18 +149,26 @@ func (r *postRepository) GetByUserID(userID int64, offset, limit int) ([]*model.
 }
 
 func (r *postRepository) List(offset, limit int) ([]*model.Post, int, error) {
+	log.Printf("Listing posts with offset: %d, limit: %d", offset, limit)
+
+	// Get total count
 	var total int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM posts").Scan(&total)
 	if err != nil {
+		log.Printf("Error counting posts: %v", err)
 		return nil, 0, err
 	}
+	log.Printf("Total posts in database: %d", total)
 
-	rows, err := r.db.Query(
-		`SELECT id, user_id, title, content, created_at, updated_at 
-         FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-		limit, offset,
-	)
+	// Get posts
+	rows, err := r.db.Query(`
+        SELECT p.id, p.user_id, p.title, p.content, p.image_url, p.created_at, p.updated_at
+        FROM posts p
+        ORDER BY p.created_at DESC
+        LIMIT ? OFFSET ?
+    `, limit, offset)
 	if err != nil {
+		log.Printf("Error querying posts: %v", err)
 		return nil, 0, err
 	}
 	defer rows.Close()
@@ -143,15 +177,22 @@ func (r *postRepository) List(offset, limit int) ([]*model.Post, int, error) {
 	for rows.Next() {
 		post := &model.Post{}
 		err := rows.Scan(
-			&post.ID, &post.UserID, &post.Title,
-			&post.Content, &post.CreatedAt, &post.UpdatedAt,
+			&post.ID,
+			&post.UserID,
+			&post.Title,
+			&post.Content,
+			&post.ImageURL,
+			&post.CreatedAt,
+			&post.UpdatedAt,
 		)
 		if err != nil {
+			log.Printf("Error scanning post row: %v", err)
 			return nil, 0, err
 		}
 		posts = append(posts, post)
 	}
 
+	log.Printf("Retrieved %d posts", len(posts))
 	return posts, total, nil
 }
 
@@ -164,12 +205,12 @@ func (r *postRepository) AddComment(comment *model.Comment) error {
 	return err
 }
 
-func (r *postRepository) GetComments(postID int64) ([]*model.Comment, error) {
-	rows, err := r.db.Query(
-		`SELECT id, post_id, user_id, content, created_at 
-         FROM comments 
-         WHERE post_id = ? 
-         ORDER BY created_at DESC`, postID)
+func (r *postRepository) GetComments(postID int) ([]*model.Comment, error) {
+	rows, err := r.db.Query(`
+        SELECT id, post_id, user_id, content, created_at 
+        FROM comments 
+        WHERE post_id = ? 
+        ORDER BY created_at DESC`, postID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,9 +219,14 @@ func (r *postRepository) GetComments(postID int64) ([]*model.Comment, error) {
 	var comments []*model.Comment
 	for rows.Next() {
 		comment := &model.Comment{}
-		if err := rows.Scan(
-			&comment.ID, &comment.PostID, &comment.UserID,
-			&comment.Content, &comment.CreatedAt); err != nil {
+		err := rows.Scan(
+			&comment.ID,
+			&comment.PostID,
+			&comment.UserID,
+			&comment.Content,
+			&comment.CreatedAt,
+		)
+		if err != nil {
 			return nil, err
 		}
 		comments = append(comments, comment)
@@ -188,24 +234,24 @@ func (r *postRepository) GetComments(postID int64) ([]*model.Comment, error) {
 	return comments, nil
 }
 
-func (r *postRepository) GetCategories(postID int64) ([]*model.Category, error) {
-	rows, err := r.db.Query(
-		`SELECT c.id, c.name 
-         FROM categories c 
-         JOIN post_categories pc ON c.id = pc.category_id 
-         WHERE pc.post_id = ?`, postID)
+func (r *postRepository) GetCategories(postID int) ([]string, error) {
+	rows, err := r.db.Query(`
+        SELECT c.name 
+        FROM categories c 
+        JOIN post_categories pc ON c.id = pc.category_id 
+        WHERE pc.post_id = ?`, postID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var categories []*model.Category
+	var categories []string
 	for rows.Next() {
-		cat := &model.Category{}
-		if err := rows.Scan(&cat.ID, &cat.Name); err != nil {
+		var category string
+		if err := rows.Scan(&category); err != nil {
 			return nil, err
 		}
-		categories = append(categories, cat)
+		categories = append(categories, category)
 	}
 	return categories, nil
 }
