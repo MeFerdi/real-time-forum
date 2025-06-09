@@ -87,6 +87,18 @@ func MigrateDB(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_private_messages_receiver ON private_messages(receiver_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_post_categories_post_id ON post_categories(post_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_post_categories_category_id ON post_categories(category_id);`,
+		`CREATE TABLE IF NOT EXISTS post_reactions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			post_id INTEGER NOT NULL,
+			user_id INTEGER NOT NULL,
+			reaction_type TEXT NOT NULL CHECK(reaction_type IN ('like', 'dislike')),
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE(post_id, user_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_post_reactions_post_id ON post_reactions(post_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_post_reactions_user_id ON post_reactions(user_id);`,
 	}
 
 	// Execute each statement
