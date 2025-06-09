@@ -17,6 +17,13 @@ type PostRepository interface {
 	GetComments(postID int) ([]*model.Comment, error)
 	GetCategories(postID int) ([]string, error)
 	AddComment(comment *model.Comment) error
+	GetCommentByID(commentID int) (*model.Comment, error)
+	UpdateComment(comment *model.Comment) error
+	DeleteComment(commentID int) error
+	AddReaction(postID, userID int, reactionType string) error
+	RemoveReaction(postID, userID int) error
+	GetPostReactions(postID int) (likes int, dislikes int, error error)
+	GetUserReaction(postID, userID int) (string, error)
 }
 
 type postRepository struct {
@@ -254,4 +261,100 @@ func (r *postRepository) GetCategories(postID int) ([]string, error) {
 		categories = append(categories, category)
 	}
 	return categories, nil
+}
+
+func (r *postRepository) GetCommentByID(commentID int) (*model.Comment, error) {
+	var comment model.Comment
+	err := r.db.QueryRow(`
+		SELECT id, post_id, user_id, content, created_at 
+		FROM comments 
+		WHERE id = ?`,
+		commentID,
+	).Scan(
+		&comment.ID,
+		&comment.PostID,
+		&comment.UserID,
+		&comment.Content,
+		&comment.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &comment, nil
+}
+
+func (r *postRepository) UpdateComment(comment *model.Comment) error {
+	_, err := r.db.Exec(
+		"UPDATE comments SET content = ? WHERE id = ?",
+		comment.Content, comment.ID,
+	)
+	return err
+}
+
+func (r *postRepository) DeleteComment(commentID int) error {
+	_, err := r.db.Exec("DELETE FROM comments WHERE id = ?", commentID)
+	return err
+}
+
+func (r *postRepository) AddReaction(postID, userID int, reactionType string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Delete any existing reaction first
+	_, err = tx.Exec("DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?", postID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Add new reaction
+	_, err = tx.Exec(
+		"INSERT INTO post_reactions (post_id, user_id, reaction_type, created_at) VALUES (?, ?, ?, ?)",
+		postID, userID, reactionType, time.Now(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *postRepository) RemoveReaction(postID, userID int) error {
+	_, err := r.db.Exec(
+		"DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?",
+		postID, userID,
+	)
+	return err
+}
+
+func (r *postRepository) GetPostReactions(postID int) (likes int, dislikes int, err error) {
+	err = r.db.QueryRow(`
+		SELECT 
+			COALESCE(SUM(CASE WHEN reaction_type = 'like' THEN 1 ELSE 0 END), 0) as likes,
+			COALESCE(SUM(CASE WHEN reaction_type = 'dislike' THEN 1 ELSE 0 END), 0) as dislikes
+		FROM post_reactions 
+		WHERE post_id = ?`,
+		postID,
+	).Scan(&likes, &dislikes)
+	return
+}
+
+func (r *postRepository) GetUserReaction(postID, userID int) (string, error) {
+	var reactionType string
+	err := r.db.QueryRow(
+		"SELECT reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?",
+		postID, userID,
+	).Scan(&reactionType)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return reactionType, nil
 }
