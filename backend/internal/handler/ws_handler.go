@@ -35,6 +35,7 @@ type WsMessage struct {
 	Data       any    `json:"data"`
 	SenderID   int    `json:"sender_id"`
 	ReceiverID int    `json:"receiver_id"`
+	PostID     int    `json:"post_id,omitempty"`
 }
 
 func NewWsHandler(userRepo repository.UserRepository) *WsHandler {
@@ -86,6 +87,8 @@ func (h *WsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.handleSendMessage(msg, conn)
 		case "get_messages":
 			h.handleGetMessages(msg, conn)
+		case "comment_added", "comment_updated", "comment_deleted":
+			h.broadcast <- msg
 		}
 	}
 }
