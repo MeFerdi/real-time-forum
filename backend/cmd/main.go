@@ -71,8 +71,8 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(cfg, userRepo, sessionRepo)
-	postHandler := handler.NewPostHandler(postRepo, userRepo)
 	wsHandler := handler.NewWsHandler(userRepo)
+	postHandler := handler.NewPostHandler(postRepo, userRepo, wsHandler)
 
 	// Auth routes
 	mux.HandleFunc("/api/auth/register", authHandler.Register)
@@ -86,6 +86,16 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 	// Post routes with auth middleware
 	mux.HandleFunc("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
 	mux.HandleFunc("/api/posts/create", withAuth(sessionRepo, postHandler.CreatePost))
+	mux.HandleFunc("/api/posts/comments/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			withAuth(sessionRepo, postHandler.UpdateComment)(w, r)
+		case http.MethodDelete:
+			withAuth(sessionRepo, postHandler.DeleteComment)(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	mux.HandleFunc("/api/posts/by-user", withAuth(sessionRepo, postHandler.GetPostsByUserID))
 	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/api/posts/") {
@@ -96,6 +106,13 @@ func setupRouter(db *sql.DB, cfg *config.Config) http.Handler {
 
 		if strings.HasSuffix(path, "/comments") {
 			withAuth(sessionRepo, postHandler.AddComment)(w, r)
+			return
+		}
+
+		// Check for reaction endpoint
+		parts := strings.Split(path, "/")
+		if len(parts) == 2 && parts[1] == "react" {
+			withAuth(sessionRepo, postHandler.HandlePostReaction)(w, r)
 			return
 		}
 
