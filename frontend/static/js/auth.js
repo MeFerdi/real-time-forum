@@ -141,7 +141,8 @@ function renderSignup() {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                credentials: 'include'
             });
             if (res.ok) {
                 renderLogin();
@@ -188,7 +189,8 @@ function renderLogin() {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                credentials: 'include'
             });
             if (res.ok) {
                 // On successful login, render the Home page
