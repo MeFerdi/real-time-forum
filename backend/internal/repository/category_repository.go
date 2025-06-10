@@ -9,14 +9,38 @@ import (
 type CategoryRepository interface {
 	AddPostCategories(postID int, categoryIDs []int64) error
 	GetCategories(postID int) ([]string, error)
+	 FetchAllCategories() ([]Category, error)
 }
 
 type categoryRepository struct {
 	db *sql.DB
 }
+type Category struct {
+    ID   int64  `json:"id"`
+    Name string `json:"name"`
+}
 
 func NewCategoryRepository(db *sql.DB) CategoryRepository {
 	return &categoryRepository{db: db}
+}
+func (r *categoryRepository) FetchAllCategories() ([]Category, error) {
+    rows, err := r.db.Query(`SELECT id, name FROM categories`)
+    if err != nil {
+        log.Printf("Error fetching all categories: %v", err)
+        return nil, err
+    }
+    defer rows.Close()
+
+    var categories []Category
+    for rows.Next() {
+        var c Category
+        if err := rows.Scan(&c.ID, &c.Name); err != nil {
+            log.Printf("Error scanning category: %v", err)
+            return nil, err
+        }
+        categories = append(categories, c)
+    }
+    return categories, nil
 }
 
 func (r *categoryRepository) AddPostCategories(postID int, categoryIDs []int64) error {
