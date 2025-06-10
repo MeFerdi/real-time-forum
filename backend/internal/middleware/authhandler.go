@@ -28,7 +28,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims := &jwt.MapClaims{}
+			claims := jwt.MapClaims{}
 			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrSignatureInvalid
@@ -41,7 +41,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userContextKey, *claims)
+			ctx := context.WithValue(r.Context(), userContextKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
