@@ -74,6 +74,18 @@ func MigrateDB(db *sql.DB) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT UNIQUE NOT NULL
 		);`,
+		`INSERT OR IGNORE INTO categories (name) VALUES
+		('Technology'),
+		('Science'),
+		('Business'),
+		('Finance'),
+		('Health'),
+		('Education'),
+		('Career'),
+		('News'),
+		('Environment'),
+		('Innovation');`,
+	
 		`CREATE TABLE IF NOT EXISTS post_categories (
 			post_id INTEGER NOT NULL,
 			category_id INTEGER NOT NULL,
