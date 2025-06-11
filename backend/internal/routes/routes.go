@@ -92,6 +92,7 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	mux.HandleFunc("/api/auth/register", authHandler.Register)
 	mux.HandleFunc("/api/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
+	mux.HandleFunc("/api/auth/me", withAuth(sessionRepo, authHandler.Me))
 
 	// WebSocket route
 	mux.Handle("/ws/messages", withAuth(sessionRepo, wsHandler.ServeHTTP))
