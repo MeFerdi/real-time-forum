@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"real-time/backend/internal/config"
@@ -17,11 +19,57 @@ import (
 func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	mux := http.NewServeMux()
 
-	// Serve static assets (js, css, images, etc.)
-	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("../frontend/static/js"))))
-	mux.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("../frontend/static/css"))))
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
-	// Add other static asset folders as needed
+	// Resolve absolute paths for static directories
+	staticBase, err := filepath.Abs("../frontend/static")
+	if err != nil {
+		log.Fatalf("Failed to resolve static base: %v", err)
+	}
+	jsDir := filepath.Join(staticBase, "js")
+	cssDir := filepath.Join(staticBase, "css")
+	uploadsDir, err := filepath.Abs("uploads")
+	if err != nil {
+		log.Fatalf("Failed to resolve uploads dir: %v", err)
+	}
+
+	// Secure static file server (no directory listing, only allowed extensions)
+	secureFileServer := func(absDir string, allowedExts map[string]string) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			relPath := strings.TrimPrefix(r.URL.Path, "/")
+			absPath := filepath.Join(absDir, relPath)
+			if !strings.HasPrefix(absPath, absDir) {
+				http.NotFound(w, r)
+				return
+			}
+			fileInfo, err := os.Stat(absPath)
+			if err != nil || fileInfo.IsDir() {
+				http.NotFound(w, r)
+				return
+			}
+			ext := strings.ToLower(filepath.Ext(absPath))
+			contentType, ok := allowedExts[ext]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", contentType)
+			http.ServeFile(w, r, absPath)
+		})
+	}
+
+	// Allowed extensions and MIME types
+	jsExts := map[string]string{".js": "application/javascript"}
+	cssExts := map[string]string{".css": "text/css"}
+	uploadExts := map[string]string{
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+	}
+
+	// Serve static assets using absolute paths
+	mux.Handle("/js/", http.StripPrefix("/js/", secureFileServer(jsDir, jsExts)))
+	mux.Handle("/css/", http.StripPrefix("/css/", secureFileServer(cssDir, cssExts)))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", secureFileServer(uploadsDir, uploadExts)))
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -52,7 +100,7 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	mux.HandleFunc("/api/messages/history", withAuth(sessionRepo, messageHandler.GetMessageHistory))
 
 	// Post routes
-	mux.HandleFunc("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
+	mux.Handle("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
 	mux.HandleFunc("/api/posts/create", withAuth(sessionRepo, postHandler.CreatePost))
 	mux.HandleFunc("/api/posts/by-user", withAuth(sessionRepo, postHandler.GetPostsByUserID))
 	mux.HandleFunc("/api/posts/", withAuth(sessionRepo, postHandler.GetPost))
@@ -75,19 +123,24 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	// Reaction routes
 	mux.HandleFunc("/api/posts/react/", withAuth(sessionRepo, reactionHandler.HandlePostReaction))
 
-	// Catch-all: serve main.html for all other requests (SPA entry)
+	// SPA catch-all: serve main.html for all other GET requests
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Only serve main.html for GET requests that are not for static assets or API
 		if r.Method != http.MethodGet ||
 			strings.HasPrefix(r.URL.Path, "/api/") ||
 			strings.HasPrefix(r.URL.Path, "/js/") ||
 			strings.HasPrefix(r.URL.Path, "/css/") ||
-			strings.HasPrefix(r.URL.Path, "/uploads/") {
+			strings.HasPrefix(r.URL.Path, "/uploads/") ||
+			strings.Contains(r.URL.Path, "..") {
 			http.NotFound(w, r)
 			return
 		}
+		mainHTMLPath := filepath.Join(staticBase, "main.html")
+		if _, err := os.Stat(mainHTMLPath); err != nil {
+			http.Error(w, "Page Not Found", http.StatusNotFound)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html")
-		http.ServeFile(w, r, "../frontend/static/main.html")
+		http.ServeFile(w, r, mainHTMLPath)
 	})
 
 	log.Println("Routes registered successfully")
