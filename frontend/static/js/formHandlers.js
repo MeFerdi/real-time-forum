@@ -125,6 +125,20 @@ const formHandlers = {
             window.location.hash = '#login';
         });
     }
+    const profileBtn = document.getElementById('profile-btn');
+const profileDropdown = document.getElementById('profile-dropdown');
+if (profileBtn && profileDropdown) {
+    profileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        profileDropdown.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!profileDropdown.classList.contains('hidden')) {
+            profileDropdown.classList.add('hidden');
+        }
+    });
+    profileDropdown.addEventListener('click', (e) => e.stopPropagation());
+}
 
         const categoryItems = document.querySelectorAll('.category-item');
         console.log('Found category items:', categoryItems.length);
