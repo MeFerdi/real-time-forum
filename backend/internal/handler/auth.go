@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"real-time/backend/internal/config"
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 	"real-time/backend/internal/utils"
@@ -193,4 +194,33 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	utils.ClearAuthCookie(w, h.cfg.IsProduction())
 	w.WriteHeader(http.StatusOK)
+}
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok || userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Return only safe fields
+	resp := struct {
+		ID        int    `json:"id"`
+		Nickname  string `json:"nickname"`
+		Email     string `json:"email"`
+		CreatedAt string `json:"created_at"`
+	}{
+		ID:        user.ID,
+		Nickname:  user.Nickname,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt.Format("2006-01-02"),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
