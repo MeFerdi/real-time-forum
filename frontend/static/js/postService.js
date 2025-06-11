@@ -1,19 +1,37 @@
 import authService from './authService.js';
 class PostService {
-    async createPost(formData) {
+    // postService.js (update createPost)
+async createPost(formData) {
+    const token = authService.getToken();
+    if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+    }
+    console.log('Sending token:', token);
+    try {
         const response = await fetch('/api/posts/create', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${authService.getToken()}`
+                'Authorization': `Bearer ${token}`
             },
-            body: formData
+            body: formData,
+            credentials: 'include'
         });
         if (!response.ok) {
-            throw new Error('Failed to create post');
-            
+            let errorMsg = `Failed to create post (HTTP ${response.status})`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.message || errorMsg;
+            } catch {
+                errorMsg = await response.text();
+            }
+            throw new Error(errorMsg);
         }
         return await response.json();
+    } catch (error) {
+        console.error('Create post error:', error.message);
+        throw error;
     }
+}
 
     async getPosts() {
         const response = await fetch('/api/posts', {
