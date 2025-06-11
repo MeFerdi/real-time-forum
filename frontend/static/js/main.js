@@ -16,6 +16,22 @@ const checkSession = async () => {
     }
 };
 
+// Add this helper to get current user info
+const getCurrentUser = async () => {
+    try {
+        // Adjust the endpoint if needed
+        const res = await fetch('/api/auth/me', {
+            headers: {
+                'Authorization': `Bearer ${authService.getToken()}`
+            }
+        });
+        if (!res.ok) throw new Error('Not authenticated');
+        return await res.json();
+    } catch {
+        return {};
+    }
+};
+
 const renderAndInit = async () => {
     let hash = window.location.hash || '#login';
     const app = document.getElementById('app');
@@ -41,13 +57,16 @@ const renderAndInit = async () => {
         setTimeout(() => formHandlers.initLoginForm(), 10);
     } else if (hash === '#home') {
         try {
-            const categories = await postService.getCategories();
+            const [categories, user] = await Promise.all([
+                postService.getCategories(),
+                getCurrentUser()
+            ]);
             console.log('Fetched categories:', categories);
             if (!categories || categories.length === 0) {
                 console.warn('No categories fetched');
-                app.innerHTML = uiComponents.renderHome([]) + '<p>No categories available. Please try again later.</p>';
+                app.innerHTML = uiComponents.renderHome([], user) + '<p>No categories available. Please try again later.</p>';
             } else {
-                app.innerHTML = uiComponents.renderHome(categories);
+                app.innerHTML = uiComponents.renderHome(categories, user);
             }
             setTimeout(() => {
                 formHandlers.initHomeHandlers();
