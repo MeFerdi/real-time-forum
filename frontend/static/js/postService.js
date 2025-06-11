@@ -10,6 +10,7 @@ class PostService {
         });
         if (!response.ok) {
             throw new Error('Failed to create post');
+            
         }
         return await response.json();
     }
