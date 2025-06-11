@@ -1,5 +1,5 @@
 import { uiComponents } from './uiComponents.js';
-import formHandlers  from './formHandlers.js';
+import formHandlers from './formHandlers.js';
 import postService from './postService.js';
 import authService from './authService.js';
 
@@ -7,19 +7,16 @@ const checkSession = async () => {
     const token = authService.getToken();
     if (!token) return false;
     try {
-        // Try a lightweight protected endpoint
         await postService.getCategories();
         return true;
     } catch {
-        authService.logout(); // Clear token if invalid
+        authService.logout(); // Clear invalid token
         return false;
     }
 };
 
-// Add this helper to get current user info
 const getCurrentUser = async () => {
     try {
-        // Adjust the endpoint if needed
         const res = await fetch('/api/auth/me', {
             headers: {
                 'Authorization': `Bearer ${authService.getToken()}`
@@ -33,21 +30,25 @@ const getCurrentUser = async () => {
 };
 
 const renderAndInit = async () => {
-    let hash = window.location.hash || '#login';
     const app = document.getElementById('app');
     if (!app) {
         console.error('App container not found');
         return;
     }
 
-    // Session check before rendering home
-    if (hash === '#home') {
-        const valid = await checkSession();
-        if (!valid) {
-            window.location.hash = '#login';
-            return;
-        }
+    // Check session first, regardless of hash
+    const isAuthenticated = await checkSession();
+
+    // If not authenticated, force login page
+    if (!isAuthenticated) {
+        window.location.hash = '#login';
+        app.innerHTML = uiComponents.renderLogin();
+        setTimeout(() => formHandlers.initLoginForm(), 10);
+        return;
     }
+
+    // If authenticated, proceed with hash-based rendering
+    let hash = window.location.hash || '#home'; // Default to home for authenticated users
 
     if (hash === '#signup') {
         app.innerHTML = uiComponents.renderSignup();
@@ -77,13 +78,19 @@ const renderAndInit = async () => {
             app.innerHTML = uiComponents.renderHome([]) + '<p>Error loading categories. Please try again later.</p>';
         }
     } else {
-        app.innerHTML = uiComponents.renderLogin();
-        setTimeout(() => formHandlers.initLoginForm(), 10);
+        // Fallback to home for authenticated users with invalid hash
+        window.location.hash = '#home';
+        renderAndInit(); // Re-run to render home
     }
 };
 
 window.addEventListener('hashchange', renderAndInit);
 document.addEventListener('DOMContentLoaded', () => {
+    // Clear hash on initial load to avoid cached #home
+    if (!authService.getToken()) {
+        window.location.hash = '';
+    }
     renderAndInit();
 });
+
 export { renderAndInit };
