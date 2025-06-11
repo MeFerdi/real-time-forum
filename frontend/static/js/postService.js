@@ -1,4 +1,4 @@
-import { authService } from './authService.js';
+import authService from './authService.js';
 class PostService {
     async createPost(formData) {
         const response = await fetch('/api/posts/create', {
@@ -45,20 +45,28 @@ class PostService {
 }
 
     async addComment(postId, content) {
-        const response = await fetch(`/api/posts/comments/${postId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authService.getToken()}`
-            },
-            body: JSON.stringify({ content })
-        });
-        if (!response.ok) {
+    const response = await fetch(`/api/posts/comments/${postId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authService.getToken()}`
+        },
+        body: JSON.stringify({ content })
+    });
+    if (!response.ok) {
+        let errorMsg = 'Failed to add comment';
+        try {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to add comment');
+            errorMsg = error.message || errorMsg;
+        } catch {
+            try {
+                errorMsg = await response.text();
+            } catch {}
         }
-        return await response.json();
+        throw new Error(errorMsg);
     }
+    return await response.json();
+}
 
     async updateComment(commentId, content) {
         const response = await fetch(`/api/comments/${commentId}`, {
@@ -103,4 +111,4 @@ class PostService {
     }
 }
 const postService = new PostService();
-export { postService };
+export default postService;
