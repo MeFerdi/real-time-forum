@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -11,8 +10,8 @@ import (
 
 	"real-time/backend/internal/config"
 	"real-time/backend/internal/handler"
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/repository"
-	"real-time/backend/internal/utils"
 )
 
 // SetupRoutes configures the HTTP router with all application routes
@@ -92,25 +91,27 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	mux.HandleFunc("/api/auth/register", authHandler.Register)
 	mux.HandleFunc("/api/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
-	mux.HandleFunc("/api/auth/me", withAuth(sessionRepo, authHandler.Me))
+	mux.Handle("/api/auth/me", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(authHandler.Me)))
 
 	// WebSocket route
-	mux.Handle("/ws/messages", withAuth(sessionRepo, wsHandler.ServeHTTP))
+	mux.Handle("/ws/messages", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(wsHandler.ServeHTTP)))
 
 	// Message routes
-	mux.HandleFunc("/api/messages/history", withAuth(sessionRepo, messageHandler.GetMessageHistory))
+	mux.Handle("/api/messages/history", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(messageHandler.GetMessageHistory)))
 
 	// Post routes
-	mux.Handle("/api/posts", withAuth(sessionRepo, postHandler.ListPosts))
-	mux.HandleFunc("/api/posts/create", withAuth(sessionRepo, postHandler.CreatePost))
-	mux.HandleFunc("/api/posts/by-user", withAuth(sessionRepo, postHandler.GetPostsByUserID))
-	mux.HandleFunc("/api/posts/", withAuth(sessionRepo, postHandler.GetPost))
-	mux.HandleFunc("/api/categories", categoryHandler.GetAllCategories)
+	mux.Handle("/api/posts", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.ListPosts)))
+	mux.Handle("/api/posts/create", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.CreatePost)))
+	mux.Handle("/api/posts/by-user", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.GetPostsByUserID)))
+	mux.Handle("/api/posts/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.GetPost)))
+
+	// Category routes
+	mux.Handle("/api/categories", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(categoryHandler.GetAllCategories)))
 
 	// Comment routes
-	mux.HandleFunc("/api/posts/comments", withAuth(sessionRepo, commentHandler.GetComments))
-	mux.HandleFunc("/api/posts/comments/", withAuth(sessionRepo, commentHandler.AddComment))
-	mux.HandleFunc("/api/comments/", withAuth(sessionRepo, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/api/posts/comments", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(commentHandler.GetComments)))
+	mux.Handle("/api/posts/comments/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(commentHandler.AddComment)))
+	mux.Handle("/api/comments/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
 			commentHandler.UpdateComment(w, r)
@@ -119,10 +120,10 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-	}))
+	})))
 
 	// Reaction routes
-	mux.HandleFunc("/api/posts/react/", withAuth(sessionRepo, reactionHandler.HandlePostReaction))
+	mux.Handle("/api/posts/react/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(reactionHandler.HandlePostReaction)))
 
 	// SPA catch-all: serve main.html for all other GET requests
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -149,25 +150,5 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	return &http.Server{
 		Addr:    cfg.ServerAddress,
 		Handler: mux,
-	}
-}
-
-// withAuth is middleware to authenticate requests using session tokens
-func withAuth(sessionRepo repository.SessionRepository, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		token := utils.GetAuthToken(r)
-		if token == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		userID, err := sessionRepo.Get(token)
-		if err != nil {
-			http.Error(w, "Invalid session", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), "userID", userID)
-		next(w, r.WithContext(ctx))
 	}
 }
