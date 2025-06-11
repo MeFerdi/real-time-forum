@@ -1,7 +1,6 @@
-import { postService } from "./postService.js";
-import { authService } from "./authService.js";
-import { uiComponents } from "./uiComponents.js";
-
+import authService from './authService.js';
+import postService from './postService.js';
+import { uiComponents } from './uiComponents.js';
 const formHandlers = {
     initSignupForm() {
         const form = document.getElementById('signup-form');
@@ -119,8 +118,16 @@ const formHandlers = {
                 this.initPostForm();
             }
         });
+        const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await authService.logout();
+            window.location.hash = '#login';
+        });
+    }
 
         const categoryItems = document.querySelectorAll('.category-item');
+        console.log('Found category items:', categoryItems.length);
         categoryItems.forEach(item => {
             item.addEventListener('click', async () => {
                 categoryItems.forEach(i => i.classList.remove('active'));
@@ -137,9 +144,10 @@ const formHandlers = {
         try {
             const posts = await postService.getPosts(categoryId);
             feed.innerHTML = posts
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // Sort descending
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 .map(post => uiComponents.renderPost(post)).join('');
-            formHandlers.initReactionHandlers();
+            this.initReactionHandlers();
+            this.initCommentHandlers();
         } catch (error) {
             console.error('Error rendering posts:', error);
         }
@@ -152,7 +160,7 @@ const formHandlers = {
             button.addEventListener('click', async () => {
                 const postId = button.dataset.postId;
                 try {
-                    await postService.reactToPost(postId, 'like');
+                    await postService.handleReaction(postId, 'like');
                     await this.renderPosts(document.querySelector('.category-item.active').dataset.categoryId);
                 } catch (error) {
                     console.error('Error liking post:', error);
@@ -163,7 +171,7 @@ const formHandlers = {
             button.addEventListener('click', async () => {
                 const postId = button.dataset.postId;
                 try {
-                    await postService.removeReaction(postId);
+                    await postService.handleReaction(postId, 'dislike');
                     await this.renderPosts(document.querySelector('.category-item.active').dataset.categoryId);
                 } catch (error) {
                     console.error('Error disliking post:', error);
@@ -181,7 +189,7 @@ const formHandlers = {
         });
     },
 
-    initCommentForm() {
+    initCommentHandlers() {
         const commentForms = document.querySelectorAll('.comment-form');
         commentForms.forEach(form => {
             form.addEventListener('submit', async (e) => {
@@ -189,7 +197,8 @@ const formHandlers = {
                 const postId = parseInt(form.dataset.postId);
                 const content = form.querySelector('input[name="content"]').value;
                 try {
-                    await commentService.createComment(postId, { content });
+                    await postService.addComment(postId, { content });
+                    form.reset();
                     await this.renderPosts(document.querySelector('.category-item.active').dataset.categoryId);
                 } catch (error) {
                     console.error('Error creating comment:', error);
@@ -199,4 +208,4 @@ const formHandlers = {
     },
 };
 
-export { formHandlers };
+export default formHandlers;
