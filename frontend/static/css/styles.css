@@ -204,10 +204,6 @@ header nav button:hover {
     transform: scale(1.1);
 }
 .profile-icon {
-    position: fixed;
-    top: 1rem;
-    right: 2rem;
-    z-index: 200;
     background: var(--gray-800);
     border-radius: 50%;
     box-shadow: 0 0 8px var(--neon-cyan);
@@ -221,6 +217,37 @@ header nav button:hover {
     font-size: 1.5rem;
     border: 2px solid var(--neon-cyan);
     transition: box-shadow 0.3s;
+    margin-right: 0rem;
+}
+.profile-dropdown {
+    position: absolute;
+    top: 3.2rem;
+    right: 0;
+    background: rgba(31,41,55,0.98);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 0.5rem;
+    min-width: 220px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    padding: 1rem;
+    z-index: 300;
+    color: var(--text-light);
+}
+.profile-dropdown .profile-avatar {
+    display: flex;
+    justify-content: center;
+    color: var(--neon-cyan);
+}
+.profile-dropdown .profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.profile-dropdown .profile-info div {
+    display: block;
+    width: 100%;
+}
+.profile-dropdown.hidden {
+    display: none;
 }
 .profile-icon:hover {
     box-shadow: 0 0 16px var(--neon-pink);
