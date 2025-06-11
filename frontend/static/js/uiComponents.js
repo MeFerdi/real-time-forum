@@ -68,58 +68,70 @@ const uiComponents = {
         `;
     },
 
-    renderHome(categories = []) {
-        return `
-            <div class="min-h-screen flex">
-                <!-- Category Sidebar -->
-                <aside id="category-sidebar" class="w-64 bg-gray-900 p-4">
-                    <h2 class="text-lg font-bold mb-4 text-neon-cyan">Categories</h2>
-                    <table id="category-table" class="w-full">
-                        <tbody>
+    renderHome(categories = [], user = {}) {
+    return `
+        <div class="min-h-screen flex">
+            <!-- Category Sidebar -->
+            <aside id="category-sidebar" class="w-64 bg-gray-900 p-4">
+                <h2 class="text-lg font-bold mb-4 text-neon-cyan">Categories</h2>
+                <table id="category-table" class="w-full">
+                    <tbody>
+                        <tr>
+                            <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="0">All</td>
+                        </tr>
+                        ${categories.length > 0 ? categories.map(category => `
                             <tr>
-                                <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="0">All</td>
+                                <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="${category.id}">${category.name}</td>
                             </tr>
-                            ${categories.length > 0 ? categories.map(category => `
-                                <tr>
-                                    <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="${category.id}">${category.name}</td>
-                                </tr>
-                            `).join('') : `
-                                <tr>
-                                    <td class="p-2 text-gray-400">No categories available</td>
-                                </tr>
-                            `}
-                        </tbody>
-                    </table>
-                </aside>
-                <!-- Main Content -->
-                <div class="flex-1">
-                    <header>
-                        <div class="flex">
-                            <div class="text-2xl">
-                                <span>RealTime Forum</span>
-                            </div>
-                            <nav class="flex">
-                                <button class="nav-btn" data-nav="home">🏠 Home</button>
-                                <button class="nav-btn" data-nav="profile">👤 Profile</button>
-                            </nav>
-                            <button id="logout-btn">Logout</button>
+                        `).join('') : `
+                            <tr>
+                                <td class="p-2 text-gray-400">No categories available</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </aside>
+            <!-- Main Content -->
+            <div class="flex-1">
+                <header>
+                    <div class="flex items-center justify-between">
+                        <div class="text-2xl">
+                            <span>RealTime Forum</span>
                         </div>
-                    </header>
-                    <div id="main-content">
-                        <div class="flex justify-end mb-4">
-                            <button id="toggle-post-form-btn" class="post-toggle-btn">
-                                <i class="fas fa-plus"></i> Post
+                        <nav class="flex gap-4">
+                            <button class="nav-btn" data-nav="home">🏠 Home</button>
+                        </nav>
+                        <div class="relative">
+                            <button id="profile-btn" class="profile-icon" title="Profile">
+                                <i class="fas fa-user"></i>
                             </button>
+                            <div id="profile-dropdown" class="profile-dropdown hidden">
+                                <div class="profile-info">
+                                    <div class="profile-avatar mb-2"><i class="fas fa-user-circle fa-2x"></i></div>
+                                    <div><strong>Nickname:</strong> <span id="profile-nickname">${user.nickname || 'Guest'}</span></div>
+                                    <div><strong>Email:</strong> <span id="profile-email">${user.email || 'guest@example.com'}</span></div>
+                                    <div><strong>Joined:</strong> <span id="profile-joined">${user.created_at ? utils.formatDate(user.created_at) : '2024-01-01'}</span></div>
+                                </div>
+                            </div>
                         </div>
-                        <div id="post-form-container" class="hidden">
-                            ${this.renderPostForm(categories)}
-                        </div>
-                        <div id="feed"></div>
+                        <button id="logout-btn">Logout</button>
                     </div>
+                </header>
+                <div id="main-content">
+                    <div class="flex justify-end mb-4">
+                        <button id="toggle-post-form-btn" class="post-toggle-btn">
+                            <i class="fas fa-plus"></i> Post
+                        </button>
+                    </div>
+                    <div id="post-form-container" class="hidden">
+                        ${this.renderPostForm(categories)}
+                    </div>
+                    <div id="feed"></div>
                 </div>
             </div>
-        `;
-    },
+        </div>
+    `;
+},
 
     renderPostForm(categories = []) {
         return `
