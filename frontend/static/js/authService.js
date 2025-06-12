@@ -47,7 +47,6 @@ class AuthService {
             })
         });
         const data = await response.json();
-        // Accept both camelCase and snake_case for expiresAt
         const expiresAt = data.expiresAt || data.expires_at;
         if (response.ok) {
             if (!data.token || !expiresAt) {
@@ -68,22 +67,26 @@ class AuthService {
     }
 }
     getToken() {
-        const token = localStorage.getItem('token');
-        const expiresAt = localStorage.getItem('expiresAt');
-        if (!token || !expiresAt) {
-            console.warn('No token or expiresAt found');
-            return null;
-        }
-        const expiryDate = new Date(expiresAt);
-        if (expiryDate < new Date()) {
-            console.warn('Session expired at:', expiresAt);
-            localStorage.removeItem('token');
-            localStorage.removeItem('expiresAt');
+    const token = localStorage.getItem('token') || localStorage.getItem('expires_at');
+    const expiresAt = localStorage.getItem('expiresAt') || localStorage.getItem('expires_at');
+    if (!token || !expiresAt) {
+        if (!['#login', '#signup'].includes(window.location.hash)) {
             window.location.hash = '#login';
-            return null;
         }
-        return token;
+        return null;
     }
+    const expiryDate = new Date(expiresAt);
+    if (expiryDate < new Date()) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('expiresAt');
+        localStorage.removeItem('expires_at');
+        if (!['#login', '#signup'].includes(window.location.hash)) {
+            window.location.hash = '#login';
+        }
+        return null;
+    }
+    return token;
+}
 
     logout() {
         const token = this.getToken();
@@ -94,6 +97,7 @@ class AuthService {
             }).then(() => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('expiresAt');
+                localStorage.removeItem('expires_at');
                 window.location.hash = '#login';
             });
         } else {
