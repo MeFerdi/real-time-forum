@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 )
@@ -40,7 +41,7 @@ func (h *ReactionHandler) HandlePostReaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
