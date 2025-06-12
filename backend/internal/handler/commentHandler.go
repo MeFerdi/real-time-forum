@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 )
@@ -42,7 +43,7 @@ func (h *CommentHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -136,7 +137,7 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -209,7 +210,7 @@ func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
