@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"real-time/backend/internal/middleware"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -57,7 +58,7 @@ func (h *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 	}()
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		log.Println("Unauthorized WebSocket connection attempt")
 		return
