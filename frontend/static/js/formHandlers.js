@@ -98,7 +98,7 @@ const formHandlers = {
                 previewImage.src = '';
                 previewDiv.classList.add('hidden');
                 postFormContainer.classList.add('hidden');
-                await this.renderPosts(0); // Refresh feed
+                await this.renderPosts(0);
             } catch (error) {
                 console.error('Post creation failed:', error);
             }
