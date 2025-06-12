@@ -1,6 +1,5 @@
 import authService from './authService.js';
 class PostService {
-    // postService.js (update createPost)
 async createPost(formData) {
     const token = authService.getToken();
     if (!token) {
