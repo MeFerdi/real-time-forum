@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,13 +14,8 @@ import (
 
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
+	"real-time/backend/internal/middleware"
 )
-
-// GetUserIDFromContext extracts userID from request context
-func GetUserIDFromContext(ctx context.Context) (int, bool) {
-	userID, ok := ctx.Value("userID").(int64)
-	return int(userID), ok
-}
 
 // writeJSONResponse writes a JSON response with the given status code
 func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
@@ -109,7 +103,7 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		imageURL = "/uploads/" + filename
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
