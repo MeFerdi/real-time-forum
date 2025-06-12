@@ -56,6 +56,13 @@ func SessionAuthMiddleware(sessionRepo repository.SessionRepository) func(http.H
 }
 
 func GetUserIDFromContext(ctx context.Context) (int, bool) {
-	userID, ok := ctx.Value(userContextKey).(int)
-	return userID, ok
+	val := ctx.Value(userContextKey)
+	switch v := val.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	default:
+		return 0, false
+	}
 }
