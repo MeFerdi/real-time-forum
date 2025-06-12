@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 
@@ -90,7 +91,7 @@ func (h *MessageHandler) GetMessageHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	currentUserID, ok := GetUserIDFromContext(r.Context())
+	currentUserID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || currentUserID == 0 {
 		writeError(w, "Unauthorized", http.StatusUnauthorized)
 		return
