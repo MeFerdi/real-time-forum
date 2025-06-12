@@ -10,7 +10,7 @@ const checkSession = async () => {
         await postService.getCategories();
         return true;
     } catch {
-        authService.logout(); // Clear invalid token
+        authService.logout();
         return false;
     }
 };
@@ -36,10 +36,20 @@ const renderAndInit = async () => {
         return;
     }
 
-    // Check session first, regardless of hash
+    let hash = window.location.hash || '#home';
+
+    if (hash === '#signup') {
+        app.innerHTML = uiComponents.renderSignup();
+        setTimeout(() => formHandlers.initSignupForm(), 10);
+        return;
+    } else if (hash === '#login') {
+        app.innerHTML = uiComponents.renderLogin();
+        setTimeout(() => formHandlers.initLoginForm(), 10);
+        return;
+    }
+
     const isAuthenticated = await checkSession();
 
-    // If not authenticated, force login page
     if (!isAuthenticated) {
         window.location.hash = '#login';
         app.innerHTML = uiComponents.renderLogin();
@@ -47,16 +57,7 @@ const renderAndInit = async () => {
         return;
     }
 
-    // If authenticated, proceed with hash-based rendering
-    let hash = window.location.hash || '#home'; // Default to home for authenticated users
-
-    if (hash === '#signup') {
-        app.innerHTML = uiComponents.renderSignup();
-        setTimeout(() => formHandlers.initSignupForm(), 10);
-    } else if (hash === '#login') {
-        app.innerHTML = uiComponents.renderLogin();
-        setTimeout(() => formHandlers.initLoginForm(), 10);
-    } else if (hash === '#home') {
+    if (hash === '#home') {
         try {
             const [categories, user] = await Promise.all([
                 postService.getCategories(),
@@ -78,12 +79,10 @@ const renderAndInit = async () => {
             app.innerHTML = uiComponents.renderHome([]) + '<p>Error loading categories. Please try again later.</p>';
         }
     } else {
-        // Fallback to home for authenticated users with invalid hash
         window.location.hash = '#home';
-        renderAndInit(); // Re-run to render home
+        renderAndInit();
     }
 };
-
 window.addEventListener('hashchange', renderAndInit);
 document.addEventListener('DOMContentLoaded', () => {
     // Clear hash on initial load to avoid cached #home
