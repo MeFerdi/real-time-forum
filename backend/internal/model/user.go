@@ -29,38 +29,6 @@ type User struct {
 	Followers        []*User          `gorm:"many2many:user_followers;joinForeignKey:FollowingID;joinReferences:FollowerID;constraint:OnDelete:CASCADE"`
 }
 
-// UserDTO is the data transfer object for User
-type UserDTO struct {
-	ID         int       `json:"id"`
-	UUID       string    `json:"uuid"`
-	Nickname   string    `json:"nickname"`
-	Email      string    `json:"email"`
-	FirstName  string    `json:"first_name"`
-	LastName   string    `json:"last_name"`
-	Age        int       `json:"age"`
-	Gender     string    `json:"gender"`
-	CreatedAt  time.Time `json:"created_at"`
-	LastOnline time.Time `json:"last_online"`
-	IsOnline   bool      `json:"is_online"`
-}
-
-// ToDTO converts User to UserDTO
-func (u *User) ToDTO() UserDTO {
-	return UserDTO{
-		ID:         u.ID,
-		UUID:       u.UUID,
-		Nickname:   u.Nickname,
-		Email:      u.Email,
-		FirstName:  u.FirstName,
-		LastName:   u.LastName,
-		Age:        u.Age,
-		Gender:     u.Gender,
-		CreatedAt:  u.CreatedAt,
-		LastOnline: u.LastOnline,
-		IsOnline:   u.IsOnline,
-	}
-}
-
 // RegisterRequest is the request body for user registration
 type RegisterRequest struct {
 	Email     string `json:"email"`
@@ -80,7 +48,7 @@ type LoginRequest struct {
 
 // AuthResponse is the response for register and login
 type AuthResponse struct {
-	User      UserDTO   `json:"user"`
+	User      User      `json:"user"`
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
