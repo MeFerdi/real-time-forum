@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"real-time/backend/internal/middleware"
-	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
 )
 
@@ -84,7 +83,13 @@ func (h *ReactionHandler) HandlePostReaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response := model.PostDTO{
+	// Return only the fields needed by the frontend
+	response := struct {
+		ID           int    `json:"id"`
+		LikeCount    int    `json:"likeCount"`
+		DislikeCount int    `json:"dislikeCount"`
+		UserReaction string `json:"userReaction"`
+	}{
 		ID:           postID,
 		LikeCount:    likes,
 		DislikeCount: dislikes,
