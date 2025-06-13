@@ -5,12 +5,14 @@ const utils = {
         const previewImg = document.getElementById(previewImgId);
         const removeButton = document.getElementById(removeBtnId);
 
+        if (!imageInput || !previewContainer || !previewImg || !removeButton) return;
+
         imageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewImg.src = e.target.result;
+                reader.onload = (ev) => {
+                    previewImg.src = ev.target.result;
                     previewContainer.classList.remove('hidden');
                 };
                 reader.readAsDataURL(file);
@@ -25,13 +27,16 @@ const utils = {
     },
 
     formatDate(dateStr) {
-        return new Date(dateStr).toLocaleString('en-US', {
+        const date = new Date(dateStr);
+        if (isNaN(date)) return '';
+        return date.toLocaleString(undefined, {
+            year: 'numeric',
             month: 'short',
             day: 'numeric',
-            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         });
     }
 };
-export {utils};
+
+export { utils };
