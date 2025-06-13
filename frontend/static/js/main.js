@@ -18,11 +18,9 @@ const checkSession = async () => {
 const getCurrentUser = async () => {
     try {
         const res = await fetch('/api/auth/me', {
-            headers: {
-                'Authorization': `Bearer ${authService.getToken()}`
-            }
+            headers: { 'Authorization': `Bearer ${authService.getToken()}` }
         });
-        if (!res.ok) throw new Error('Not authenticated');
+        if (!res.ok) throw new Error();
         return await res.json();
     } catch {
         return {};
@@ -31,29 +29,25 @@ const getCurrentUser = async () => {
 
 const renderAndInit = async () => {
     const app = document.getElementById('app');
-    if (!app) {
-        console.error('App container not found');
-        return;
-    }
+    if (!app) return;
 
     let hash = window.location.hash || '#home';
 
     if (hash === '#signup') {
         app.innerHTML = uiComponents.renderSignup();
-        setTimeout(() => formHandlers.initSignupForm(), 10);
+        setTimeout(formHandlers.initSignupForm, 10);
         return;
-    } else if (hash === '#login') {
+    }
+    if (hash === '#login') {
         app.innerHTML = uiComponents.renderLogin();
-        setTimeout(() => formHandlers.initLoginForm(), 10);
+        setTimeout(formHandlers.initLoginForm, 10);
         return;
     }
 
-    const isAuthenticated = await checkSession();
-
-    if (!isAuthenticated) {
+    if (!(await checkSession())) {
         window.location.hash = '#login';
         app.innerHTML = uiComponents.renderLogin();
-        setTimeout(() => formHandlers.initLoginForm(), 10);
+        setTimeout(formHandlers.initLoginForm, 10);
         return;
     }
 
@@ -63,32 +57,24 @@ const renderAndInit = async () => {
                 postService.getCategories(),
                 getCurrentUser()
             ]);
-            console.log('Fetched categories:', categories);
-            if (!categories || categories.length === 0) {
-                console.warn('No categories fetched');
-                app.innerHTML = uiComponents.renderHome([], user) + '<p>No categories available. Please try again later.</p>';
-            } else {
-                app.innerHTML = uiComponents.renderHome(categories, user);
-            }
+            app.innerHTML = uiComponents.renderHome(categories || [], user);
             setTimeout(() => {
                 formHandlers.initHomeHandlers();
                 formHandlers.renderPosts(0);
             }, 10);
-        } catch (error) {
-            console.error('Error loading home page:', error);
-            app.innerHTML = uiComponents.renderHome([]) + '<p>Error loading categories. Please try again later.</p>';
+        } catch {
+            app.innerHTML = uiComponents.renderHome([]) + '<p>Error loading categories.</p>';
         }
-    } else {
-        window.location.hash = '#home';
-        renderAndInit();
+        return;
     }
+
+    window.location.hash = '#home';
+    renderAndInit();
 };
+
 window.addEventListener('hashchange', renderAndInit);
 document.addEventListener('DOMContentLoaded', () => {
-    // Clear hash on initial load to avoid cached #home
-    if (!authService.getToken()) {
-        window.location.hash = '';
-    }
+    if (!authService.getToken()) window.location.hash = '';
     renderAndInit();
 });
 
