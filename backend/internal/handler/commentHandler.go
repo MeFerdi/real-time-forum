@@ -78,14 +78,15 @@ func (h *CommentHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "Failed to fetch user info", http.StatusInternalServerError)
 		return
 	}
+	comment.User = *user // Attach user info if needed by frontend
 
 	h.wsHandler.BroadcastPostUpdate(WsMessage{
 		Type:   "comment_added",
-		Data:   comment.ToDTO(user.ToDTO()),
+		Data:   comment,
 		PostID: postID,
 	})
 
-	writeJSONResponse(w, http.StatusCreated, comment.ToDTO(user.ToDTO()))
+	writeJSONResponse(w, http.StatusCreated, comment)
 }
 
 func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
@@ -106,19 +107,20 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "Failed to fetch comments", http.StatusInternalServerError)
 		return
 	}
-
-	response := make([]model.CommentDTO, 0, len(comments))
-	for _, comment := range comments {
-		user, err := h.userRepo.GetByID(comment.UserID)
-		if err != nil || user == nil {
-			continue
-		}
-		response = append(response, comment.ToDTO(user.ToDTO()))
+	if comments == nil {
+		comments = []*model.Comment{}
 	}
 
-	writeJSONResponse(w, http.StatusOK, response)
-}
+	// Attach user info to each comment if needed
+	for i := range comments {
+		user, err := h.userRepo.GetByID(comments[i].UserID)
+		if err == nil && user != nil {
+			comments[i].User = *user
+		}
+	}
 
+	writeJSONResponse(w, http.StatusOK, comments)
+}
 func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		writeError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -182,14 +184,15 @@ func (h *CommentHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "Failed to fetch user info", http.StatusInternalServerError)
 		return
 	}
+	comment.User = *user
 
 	h.wsHandler.BroadcastPostUpdate(WsMessage{
 		Type:   "comment_updated",
-		Data:   comment.ToDTO(user.ToDTO()),
+		Data:   comment,
 		PostID: comment.PostID,
 	})
 
-	writeJSONResponse(w, http.StatusOK, comment.ToDTO(user.ToDTO()))
+	writeJSONResponse(w, http.StatusOK, comment)
 }
 
 func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
@@ -243,4 +246,14 @@ func (h *CommentHandler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.WriteHeader(http.StatusOK)
+}
+func (h *CommentHandler) UpdateOrDeleteComment(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPut:
+		h.UpdateComment(w, r)
+	case http.MethodDelete:
+		h.DeleteComment(w, r)
+	default:
+		writeError(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
