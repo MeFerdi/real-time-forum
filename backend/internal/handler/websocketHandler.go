@@ -32,6 +32,7 @@ type WebSocketHandler struct {
 	register   chan *websocket.Conn
 	unregister chan *websocket.Conn
 	mutex      sync.Mutex
+	once       sync.Once
 }
 
 func NewWebSocketHandler() *WebSocketHandler {
@@ -44,7 +45,9 @@ func NewWebSocketHandler() *WebSocketHandler {
 }
 
 func (h *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	go h.broadcastMessages()
+	h.once.Do(func() {
+		go h.broadcastMessages()
+	})
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
