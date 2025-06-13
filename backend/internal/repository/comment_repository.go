@@ -25,10 +25,11 @@ func NewCommentRepository(db *sql.DB) CommentRepository {
 	return &commentRepository{db: db}
 }
 
+// AddComment inserts a new comment into the database.
 func (r *commentRepository) AddComment(comment *model.Comment) error {
 	result, err := r.db.Exec(
 		`INSERT INTO comments (post_id, user_id, content, created_at) 
-		 VALUES (?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?)`,
 		comment.PostID, comment.UserID, comment.Content, time.Now(),
 	)
 	if err != nil {
@@ -45,6 +46,7 @@ func (r *commentRepository) AddComment(comment *model.Comment) error {
 	return nil
 }
 
+// GetComments returns all comments for a given post.
 func (r *commentRepository) GetComments(postID int) ([]*model.Comment, error) {
 	rows, err := r.db.Query(`
         SELECT id, post_id, user_id, content, created_at 
@@ -75,12 +77,13 @@ func (r *commentRepository) GetComments(postID int) ([]*model.Comment, error) {
 	return comments, nil
 }
 
+// GetCommentByID fetches a single comment by its ID.
 func (r *commentRepository) GetCommentByID(commentID int) (*model.Comment, error) {
 	var comment model.Comment
 	err := r.db.QueryRow(`
-		SELECT id, post_id, user_id, content, created_at 
-		FROM comments 
-		WHERE id = ?`, commentID).Scan(
+        SELECT id, post_id, user_id, content, created_at 
+        FROM comments 
+        WHERE id = ?`, commentID).Scan(
 		&comment.ID,
 		&comment.PostID,
 		&comment.UserID,
@@ -97,6 +100,7 @@ func (r *commentRepository) GetCommentByID(commentID int) (*model.Comment, error
 	return &comment, nil
 }
 
+// UpdateComment updates the content of a comment.
 func (r *commentRepository) UpdateComment(comment *model.Comment) error {
 	_, err := r.db.Exec(
 		"UPDATE comments SET content = ? WHERE id = ?",
@@ -109,6 +113,7 @@ func (r *commentRepository) UpdateComment(comment *model.Comment) error {
 	return nil
 }
 
+// DeleteComment removes a comment from the database.
 func (r *commentRepository) DeleteComment(commentID int) error {
 	_, err := r.db.Exec("DELETE FROM comments WHERE id = ?", commentID)
 	if err != nil {
