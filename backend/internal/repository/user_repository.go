@@ -26,10 +26,11 @@ func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
+// Create inserts a new user into the database.
 func (r *userRepository) Create(user *model.User) error {
 	_, err := r.db.Exec(
 		`INSERT INTO users (uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		user.UUID, user.Nickname, user.Email, user.PasswordHash, user.FirstName, user.LastName, user.Age, user.Gender,
 		time.Now(), time.Now(), user.IsOnline,
 	)
@@ -40,11 +41,12 @@ func (r *userRepository) Create(user *model.User) error {
 	return nil
 }
 
+// GetByID fetches a user by ID.
 func (r *userRepository) GetByID(id int) (*model.User, error) {
 	var user model.User
 	err := r.db.QueryRow(`
-		SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
-		FROM users WHERE id = ?`, id).Scan(
+        SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
+        FROM users WHERE id = ?`, id).Scan(
 		&user.ID, &user.UUID, &user.Nickname, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Age, &user.Gender, &user.CreatedAt, &user.LastOnline, &user.IsOnline,
 	)
@@ -58,11 +60,12 @@ func (r *userRepository) GetByID(id int) (*model.User, error) {
 	return &user, nil
 }
 
+// GetByEmail fetches a user by email.
 func (r *userRepository) GetByEmail(email string) (*model.User, error) {
 	var user model.User
 	err := r.db.QueryRow(`
-		SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
-		FROM users WHERE email = ?`, email).Scan(
+        SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
+        FROM users WHERE email = ?`, email).Scan(
 		&user.ID, &user.UUID, &user.Nickname, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Age, &user.Gender, &user.CreatedAt, &user.LastOnline, &user.IsOnline,
 	)
@@ -76,11 +79,12 @@ func (r *userRepository) GetByEmail(email string) (*model.User, error) {
 	return &user, nil
 }
 
+// GetByNickname fetches a user by nickname.
 func (r *userRepository) GetByNickname(nickname string) (*model.User, error) {
 	var user model.User
 	err := r.db.QueryRow(`
-		SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
-		FROM users WHERE nickname = ?`, nickname).Scan(
+        SELECT id, uuid, nickname, email, password_hash, first_name, last_name, age, gender, created_at, last_online, is_online
+        FROM users WHERE nickname = ?`, nickname).Scan(
 		&user.ID, &user.UUID, &user.Nickname, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Age, &user.Gender, &user.CreatedAt, &user.LastOnline, &user.IsOnline,
 	)
@@ -94,10 +98,11 @@ func (r *userRepository) GetByNickname(nickname string) (*model.User, error) {
 	return &user, nil
 }
 
+// CreatePrivateMessage inserts a new private message into the database.
 func (r *userRepository) CreatePrivateMessage(message model.PrivateMessage) error {
 	_, err := r.db.Exec(
 		`INSERT INTO private_messages (sender_id, receiver_id, content, created_at, is_read)
-		 VALUES (?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?)`,
 		message.SenderID, message.ReceiverID, message.Content, time.Now(), message.IsRead,
 	)
 	if err != nil {
@@ -107,12 +112,13 @@ func (r *userRepository) CreatePrivateMessage(message model.PrivateMessage) erro
 	return nil
 }
 
+// GetPrivateMessages fetches all private messages between two users.
 func (r *userRepository) GetPrivateMessages(senderID, receiverID int) ([]model.PrivateMessage, error) {
 	rows, err := r.db.Query(`
-		SELECT id, sender_id, receiver_id, content, created_at, is_read
-		FROM private_messages
-		WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
-		ORDER BY created_at ASC`, senderID, receiverID, receiverID, senderID)
+        SELECT id, sender_id, receiver_id, content, created_at, is_read
+        FROM private_messages
+        WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY created_at ASC`, senderID, receiverID, receiverID, senderID)
 	if err != nil {
 		log.Printf("Error fetching messages between %d and %d: %v", senderID, receiverID, err)
 		return nil, err
