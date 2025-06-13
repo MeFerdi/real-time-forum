@@ -3,7 +3,7 @@ import { utils } from './utils.js';
 const uiComponents = {
     renderSignup() {
         return `
-            <div class="min-h-screen">
+            <div class="min-h-screen flex items-center justify-center">
                 <form id="signup-form" class="signup-form">
                     <h2>Sign Up</h2>
                     <div class="input-group">
@@ -11,11 +11,11 @@ const uiComponents = {
                         <input type="text" id="nickname" name="nickname" placeholder="Nickname" required>
                     </div>
                     <div class="input-group">
-                        <i class="fas fa-id-card"></i>
+                        <i class="fas fa-user"></i>
                         <input type="text" id="first_name" name="first_name" placeholder="First Name" required>
                     </div>
                     <div class="input-group">
-                        <i class="fas fa-id-card"></i>
+                        <i class="fas fa-user"></i>
                         <input type="text" id="last_name" name="last_name" placeholder="Last Name" required>
                     </div>
                     <div class="input-group">
@@ -28,7 +28,7 @@ const uiComponents = {
                     </div>
                     <div class="input-group">
                         <i class="fas fa-calendar"></i>
-                        <input type="number" id="age" name="age" placeholder="Age" required>
+                        <input type="number" id="age" name="age" placeholder="Age" min="13" required>
                     </div>
                     <div class="input-group">
                         <i class="fas fa-venus-mars"></i>
@@ -39,9 +39,9 @@ const uiComponents = {
                             <option value="other">Other</option>
                         </select>
                     </div>
-                    <button type="submit"><i class="fas fa-paper-plane"></i> Sign Up</button>
+                    <button type="submit">Sign Up</button>
                     <div id="error-info"></div>
-                    <p class="text-center">Already have an account? <a href="#login">Login</a></p>
+                    <p>Already have an account? <a href="#login">Login</a></p>
                 </form>
             </div>
         `;
@@ -49,7 +49,7 @@ const uiComponents = {
 
     renderLogin() {
         return `
-            <div class="min-h-screen">
+            <div class="min-h-screen flex items-center justify-center">
                 <form id="login-form" class="login-form">
                     <h2>Login</h2>
                     <div class="input-group">
@@ -60,192 +60,359 @@ const uiComponents = {
                         <i class="fas fa-lock"></i>
                         <input type="password" id="password" name="password" placeholder="Password" required>
                     </div>
-                    <button type="submit"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    <button type="submit">Login</button>
                     <div id="error-info"></div>
-                    <p class="text-center">Don't have an account? <a href="#signup">Sign Up</a></p>
+                    <p>Don't have an account? <a href="#signup">Sign Up</a></p>
                 </form>
             </div>
         `;
     },
 
-    renderHome(categories = [], user = {}) {
-    return `
-        <div class="min-h-screen flex">
-            <!-- Category Sidebar -->
-            <aside id="category-sidebar" class="w-64 bg-gray-900 p-4">
-                <h2 class="text-lg font-bold mb-4 text-neon-cyan">Categories</h2>
-                <table id="category-table" class="w-full">
-                    <tbody>
-                        <tr>
-                            <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="0">All</td>
-                        </tr>
-                        ${categories.length > 0 ? categories.map(category => `
+    renderHome(categories = [], user = {}, messages = []) {
+        return `
+            <style>
+                .post-toggle-btn {
+                    background-color: #3b82f6;
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    border: none;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                }
+                .post-toggle-btn:hover {
+                    background-color: #2563eb;
+                }
+                .create-post-btn {
+                    background-color: #10b981;
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    border: none;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                    width: 100%;
+                }
+                .create-post-btn:hover {
+                    background-color: #059669;
+                }
+                .success-message, .error-message {
+                    position: fixed;
+                    top: 1rem;
+                    right: 1rem;
+                    padding: 0.75rem 1.5rem;
+                    border-radius: 0.5rem;
+                    z-index: 1000;
+                }
+                .success-message {
+                    background-color: #10b981;
+                    color: white;
+                }
+                .error-message {
+                    background-color: #ef4444;
+                    color: white;
+                }
+                #post-form-container {
+                    background-color: #f9fafb;
+                    padding: 1.5rem;
+                    border-radius: 0.75rem;
+                    margin-bottom: 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                .input-group {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                    background-color: white;
+                    border: 1px solid #d1d5db;
+                    border-radius: 0.5rem;
+                    padding: 0.5rem;
+                }
+                .input-group i {
+                    margin-right: 0.5rem;
+                    color: #6b7280;
+                }
+                .input-group input, .input-group textarea, .input-group select {
+                    flex: 1;
+                    border: none;
+                    outline: none;
+                    font-size: 1rem;
+                }
+                #image-preview {
+                    margin-top: 1rem;
+                }
+                #preview-image {
+                    max-width: 100%;
+                    border-radius: 0.5rem;
+                }
+                #remove-image-btn {
+                    background-color: #ef4444;
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    border: none;
+                    margin-top: 0.5rem;
+                    cursor: pointer;
+                }
+                #remove-image-btn:hover {
+                    background-color: #dc2626;
+                }
+                .profile-section {
+                    background-color: #f9fafb;
+                    padding: 2rem;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    margin-bottom: 2rem;
+                }
+                .posts-grid {
+                    display: grid;
+                    gap: 1.5rem;
+                }
+                .post-card {
+                    background-color: white;
+                    padding: 1.5rem;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+            </style>
+            <header>
+                <div class="header-title">Forum</div>
+                <div class="header-right">
+                    <button class="profile-icon"><i class="fas fa-user"></i></button>
+                    <button id="logout-btn">Logout</button>
+                </div>
+            </header>
+            <main>
+                <aside id="category-sidebar">
+                    <h2 class="text-lg font-bold mb-4">Categories</h2>
+                    <table id="category-table">
+                        <tbody>
                             <tr>
-                                <td class="category-item p-2 cursor-pointer hover:bg-gray-800" data-category-id="${category.id}">${category.name}</td>
+                                <td class="category-item" data-category-id="0">All</td>
                             </tr>
-                        `).join('') : `
-                            <tr>
-                                <td class="p-2 text-gray-400">No categories available</td>
-                            </tr>
-                        `}
-                    </tbody>
-                </table>
-            </aside>
-            <!-- Main Content -->
-            <div class="flex-1">
-                <header>
-                    <div class="flex items-center justify-between">
-                        <div class="text-2xl">
-                            <span>RealTime Forum</span>
-                        </div>
-                        <nav class="flex gap-4">
-                            <button class="nav-btn" data-nav="home">🏠 Home</button>
-                        </nav>
-                        <div class="relative">
-                            <button id="profile-btn" class="profile-icon" title="Profile">
-                                <i class="fas fa-user"></i>
-                            </button>
-                            <div id="profile-dropdown" class="profile-dropdown hidden">
-                                <div class="profile-info">
-                                    <div class="profile-avatar mb-2"><i class="fas fa-user-circle fa-2x"></i></div>
-                                    <div><strong>Nickname:</strong> <span id="profile-nickname">${user.nickname || 'Guest'}</span></div>
-                                    <div><strong>Email:</strong> <span id="profile-email">${user.email || 'guest@example.com'}</span></div>
-                                    <div><strong>Joined:</strong> <span id="profile-joined">${user.created_at ? utils.formatDate(user.created_at) : '2024-01-01'}</span></div>
-                                </div>
-                            </div>
-                        </div>
-                        <button id="logout-btn">Logout</button>
-                    </div>
-                </header>
-                <div id="main-content">
+                            ${categories.length > 0 ? categories.map(category => `
+                                <tr>
+                                    <td class="category-item" data-category-id="${category.id}">${category.name}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td class="text-gray-300">No categories available</td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </aside>
+                <section id="feeds-section">
                     <div class="flex justify-end mb-4">
-                        <button id="toggle-post-form-btn" class="post-toggle-btn">
-                            <i class="fas fa-plus"></i> Post
-                        </button>
+                        <button id="toggle-post-form-btn" class="post-toggle-btn">+ New Post</button>
                     </div>
                     <div id="post-form-container" class="hidden">
                         ${this.renderPostForm(categories)}
                     </div>
                     <div id="feed"></div>
+                </section>
+                <aside id="messaging-sidebar">
+                    <h2 class="text-lg font-bold mb-4">Messages</h2>
+                    <table id="messaging-table">
+                        <tbody>
+                            ${messages.length > 0 ? messages.map(message => `
+                                <tr>
+                                    <td class="message-item" data-message-id="${message.id}">
+                                        <span class="font-medium">${message.sender_nickname || 'Unknown'}</span>: ${message.content.substring(0, 30)}${message.content.length > 30 ? '...' : ''}
+                                    </td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td class="text-gray-300">No messages available</td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </aside>
+            </main>
+            <footer>
+                <p>© 2025 Forum. All rights reserved.</p>
+            </footer>
+        `;
+    },
+
+    renderProfilePage(user = {}, createdPosts = [], likedPosts = []) {
+        return `
+            <style>
+                .profile-section {
+                    background-color: #f9fafb;
+                    padding: 2rem;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    margin-bottom: 2rem;
+                }
+                .posts-grid {
+                    display: grid;
+                    gap: 1.5rem;
+                }
+                .post-card {
+                    background-color: white;
+                    padding: 1.5rem;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                .back-btn {
+                    background-color: #3b82f6;
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    border: none;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                    margin-bottom: 1rem;
+                }
+                .back-btn:hover {
+                    background-color: #2563eb;
+                }
+            </style>
+            <header>
+                <div class="header-title">Forum</div>
+                <div class="header-right">
+                    <button class="profile-icon"><i class="fas fa-user"></i></button>
+                    <button id="logout-btn">Logout</button>
                 </div>
-            </div>
-        </div>
-    `;
-},
+            </header>
+            <main class="container mx-auto px-4 py-8">
+                <button id="back-btn" class="back-btn">Back to Home</button>
+                <section class="profile-section">
+                    <h2 class="text-2xl font-bold mb-4">Profile</h2>
+                    <p><strong>Nickname:</strong> ${user.nickname || 'Unknown'}</p>
+                    <p><strong>Email:</strong> ${user.email || 'Not provided'}</p>
+                    <p><strong>Joined:</strong> ${user.created_at ? utils.formatDate(user.created_at) : 'Not provided'}</p>
+                </section>
+                <section class="posts-grid">
+                    <h3 class="text-xl font-bold mb-4">Created Posts</h3>
+                    ${createdPosts.length ? createdPosts.map(post => this.renderPost(post)).join('') : '<p>No posts created yet.</p>'}
+                </section>
+                <section class="posts-grid">
+                    <h3 class="text-xl font-bold mb-4">Liked Posts</h3>
+                    ${likedPosts.length ? likedPosts.map(post => this.renderPost(post)).join('') : '<p>No posts liked yet.</p>'}
+                </section>
+            </main>
+            <footer>
+                <p>© 2025 Forum. All rights reserved.</p>
+            </footer>
+        `;
+    },
 
     renderPostForm(categories = []) {
         return `
-            <div>
-                <form id="create-post-form" class="space-y-4" method="POST" enctype="multipart/form-data">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            <div class="avatar">👤</div>
-                        </div>
-                        <div class="flex-grow">
-                            <input type="text" id="post-title" name="title" class="w-full" placeholder="Title (optional)">
-                            <textarea id="post-content" name="content" class="w-full" placeholder="What's on your mind?" rows="3" required></textarea>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <select id="post-category" name="category_id" class="flex-grow bg-gray-900 text-light border border-gray-700 rounded p-2" required>
-                            <option value="">Select Category</option>
-                            ${categories.map(category => `
-                                <option value="${category.id}">${category.name}</option>
-                            `).join('')}
-                        </select>
-                        <label class="cursor-pointer">
-                            <i class="fas fa-camera"></i>
-                            <input type="file" id="post-image" name="image" accept="image/*" class="hidden">
-                        </label>
-                    </div>
-                    <div id="image-preview" class="hidden">
-                        <img id="preview-image" src="" alt="Image preview">
-                        <button type="button" id="remove-image-btn"><i class="fas fa-trash"></i> Remove image</button>
-                    </div>
-                    <div class="flex justify-end">
-                        <button type="submit"><i class="fas fa-paper-plane"></i> Post</button>
-                    </div>
-                </form>
-            </div>
+            <form id="create-post-form" method="POST" enctype="multipart/form-data">
+                <div class="input-group">
+                    <i class="fas fa-heading"></i>
+                    <input type="text" id="post-title" name="title" placeholder="Title (optional)">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-comment"></i>
+                    <textarea id="post-content" name="content" placeholder="What's on your mind?" rows="4" required></textarea>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-list"></i>
+                    <select id="post-category" name="category_id" required>
+                        <option value="">Select Category</option>
+                        ${categories.map(category => `<option value="${category.id}">${category.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-image"></i>
+                    <input type="file" id="post-image" name="image" accept="image/*">
+                </div>
+                <div id="image-preview" class="hidden">
+                    <img id="preview-image" src="" alt="Image preview">
+                    <button type="button" id="remove-image-btn">Remove Image</button>
+                </div>
+                <button type="submit" class="create-post-btn">Post</button>
+            </form>
         `;
     },
 
     renderPost(post) {
+        const comments = post.comments || [];
         return `
-            <div data-post-id="${post.id}" class="post-card">
-                <div class="flex items-center">
-                    <div class="avatar">
-                        <span>👤</span>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm">@${post.user.nickname}</span>
-                            <span class="text-xs">${utils.formatDate(post.created_at)}</span>
-                            ${post.category ? `<span class="category-tag">${post.category.name}</span>` : ''}
-                        </div>
-                        <h3>${post.title || ''}</h3>
-                    </div>
-                </div>
+            <div class="post-card" data-post-id="${post.id}">
+                <h3 class${post.title ? '' : 'hidden'}>${post.title || ''}</h3>
                 <p>${post.content}</p>
-                ${post.image_url ? `
-                    <div>
-                        <img src="${post.image_url}" alt="Post image" class="max-h-100">
-                    </div>
-                ` : ''}
-                <div class="post-actions flex gap-3 mt-2 justify-end">
-                    <button class="reaction-btn like-btn ${post.user_reaction === 'like' ? 'text-neon-cyan' : 'text-gray-400'}" data-post-id="${post.id}">
-                        <i class="fas fa-thumbs-up"></i>
-                        <span class="like-count">${post.like_count || 0}</span>
-                    </button>
-                    <button class="reaction-btn dislike-btn ${post.user_reaction === 'dislike' ? 'text-neon-pink' : 'text-gray-400'}" data-post-id="${post.id}">
-                        <i class="fas fa-thumbs-down"></i>
-                        <span class="dislike-count">${post.dislike_count || 0}</span>
-                    </button>
-                    <button class="reaction-btn comment-btn text-gray-400" data-post-id="${post.id}">
-                        <i class="fas fa-comment"></i>
-                        <span>${post.comments ? post.comments.length : 0}</span>
-                    </button>
+                ${post.image_url ? `<img src="${post.image_url}" alt="Post image" class="post-image">` : ''}
+                <div class="post-meta">
+                    <span>By ${post.author_nickname || 'Unknown'}</span>
+                    <span>${utils.formatDate(post.created_at)}</span>
                 </div>
-                <div class="comments-section hidden">
-                    <form class="comment-form" data-post-id="${post.id}">
-                        <div class="flex">
-                            <input type="text" placeholder="Write a comment..." name="content" required>
-                            <button type="submit"><i class="fas fa-paper-plane"></i> Comment</button>
+                <div class="post-actions">
+                    <button class="like-btn" data-post-id="${post.id}"><i class="fas fa-thumbs-up"></i> ${post.reactions?.likes || 0}</button>
+                    <button class="dislike-btn" data-post-id="${post.id}"><i class="fas fa-thumbs-down"></i> ${post.reactions?.dislikes || 0}</button>
+                    <button class="comment-btn" data-post-id="${post.id}"><i class="fas fa-comment"></i> ${comments.length}</button>
+                </div>
+                <div class="comments-section hidden" data-post-id="${post.id}">
+                    <div class="comments-list">
+                        ${comments.length ? comments.map(comment => this.renderComment(comment, post.current_user_id)).join('') : '<p>No comments yet.</p>'}
+                    </div>
+                    <button class="show-comment-form-btn" data-post-id="${post.id}">Add Comment</button>
+                    <form class="comment-form hidden" data-post-id="${post.id}">
+                        <div class="input-group">
+                            <i class="fas fa-comment"></i>
+                            <input type="text" name="content" placeholder="Add a comment..." required>
                         </div>
+                        <button type="submit">Post</button>
                     </form>
-                    <div class="comments-container">
-                        ${post.comments ? post.comments.map(comment => this.renderComment(comment, post.user.id)).join('') : ''}
-                    </div>
                 </div>
+            </div>
+        `;
+    },
+
+    renderFeed(posts = []) {
+        if (!posts.length) {
+            return `<div id="feeds-table" class="no-posts-msg">No Feeds Available</div>`;
+        }
+        return `
+            <div id="feeds-table">
+                ${posts
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .map(post => this.renderPost(post)).join('')}
             </div>
         `;
     },
 
     renderComment(comment, currentUserId) {
         return `
-            <div data-comment-id="${comment.id}">
-                <div class="flex">
-                    <div class="flex">
-                        <span>@${comment.user.nickname}</span>
-                        <span>${utils.formatDate(comment.created_at)}</span>
-                    </div>
-                    ${comment.user.id === currentUserId ? `
-                        <div class="flex">
-                            <button class="edit-comment-btn">Edit</button>
-                            <button class="delete-comment-btn">Delete</button>
-                        </div>
+            <div class="comment" data-comment-id="${comment.id}">
+                <div class="post-meta">
+                    <span>@${comment.user?.nickname || 'Unknown'}</span>
+                    <span>${utils.formatDate(comment.created_at)}</span>
+                    ${comment.user?.id === currentUserId ? `
+                        <button class="edit-comment-btn">Edit</button>
+                        <button class="delete-comment-btn">Delete</button>
                     ` : ''}
                 </div>
                 <div class="comment-content">
                     <p>${comment.content}</p>
                 </div>
                 <form class="edit-comment-form hidden" data-comment-id="${comment.id}">
-                    <div class="flex">
+                    <div class="input-group">
+                        <i class="fas fa-comment"></i>
                         <input type="text" value="${comment.content}" name="content" required>
-                        <button type="submit">Save</button>
-                        <button type="button" class="cancel-edit-btn">Cancel</button>
                     </div>
+                    <button type="submit">Save</button>
+                    <button type="button" class="cancel-edit-btn">Cancel</button>
                 </form>
+            </div>
+        `;
+    },
+
+    renderMessageView(message) {
+        return `
+            <div class="message-view" style="position: fixed; top: 20%; left: 50%; transform: translateX(-50%); background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000;">
+                <h3>Message from @${message.sender_nickname || 'Unknown'}</h3>
+                <p>${message.content}</p>
+                <span>${utils.formatDate(message.created_at)}</span>
+                <button class="close-message-btn" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; margin-top: 1rem;">Close</button>
             </div>
         `;
     }
