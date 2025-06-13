@@ -57,7 +57,7 @@ func (h *MessageHandler) handleSendMessage(msg WsMessage, _ *websocket.Conn) {
 
 	broadcastMsg := WsMessage{
 		Type:       "new_message",
-		Data:       message.Content,
+		Data:       message,
 		SenderID:   msg.SenderID,
 		ReceiverID: msg.ReceiverID,
 	}
@@ -71,14 +71,9 @@ func (h *MessageHandler) handleGetMessages(msg WsMessage, conn *websocket.Conn) 
 		return
 	}
 
-	response := make([]model.MessageDTO, 0, len(messages))
-	for _, msg := range messages {
-		response = append(response, msg.ToDTO())
-	}
-
 	if err := conn.WriteJSON(WsMessage{
 		Type: "messages_history",
-		Data: response,
+		Data: messages,
 	}); err != nil {
 		log.Printf("Failed to send messages history: %v", err)
 	}
@@ -103,13 +98,8 @@ func (h *MessageHandler) GetMessageHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response := make([]model.MessageDTO, 0, len(messages))
-	for _, msg := range messages {
-		response = append(response, msg.ToDTO())
-	}
-
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"success":  true,
-		"messages": response,
+		"messages": messages,
 	})
 }
