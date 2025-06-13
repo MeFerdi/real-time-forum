@@ -14,6 +14,7 @@ type PostRepository interface {
 	GetByID(id int) (*model.Post, error)
 	GetByUserID(userID int, offset, limit int) ([]*model.Post, int, error)
 	List(offset, limit int) ([]*model.Post, int, error)
+	GetLikedPosts(userID int, offset, limit int) ([]*model.Post, int, error)
 }
 
 type postRepository struct {
@@ -31,7 +32,12 @@ func (r *postRepository) Create(post *model.Post) error {
 		log.Printf("Error starting transaction: %v", err)
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+	}()
 
 	result, err := tx.Exec(
 		`INSERT INTO posts (user_id, title, content, image_url, created_at, updated_at) 
@@ -39,12 +45,14 @@ func (r *postRepository) Create(post *model.Post) error {
 		post.UserID, post.Title, post.Content, post.ImageURL, time.Now(), time.Now(),
 	)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Error inserting post: %v", err)
 		return err
 	}
 
 	postID, err := result.LastInsertId()
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Error getting last insert ID: %v", err)
 		return err
 	}
@@ -120,9 +128,41 @@ func (r *postRepository) GetByUserID(userID int, offset, limit int) ([]*model.Po
 			log.Printf("Error scanning post: %v", err)
 			return nil, 0, err
 		}
+		// Attach categories for each post
+		categories, err := r.categoryRepo.GetCategories(post.ID)
+		if err == nil {
+			post.Categories = categories
+		}
 		posts = append(posts, post)
 	}
 
+	return posts, total, nil
+}
+func (r *postRepository) GetLikedPosts(userID int, offset, limit int) ([]*model.Post, int, error) {
+	query := `
+		SELECT p.id, p.user_id, p.title, p.content, p.image_url, p.created_at, COUNT(*) as total
+		FROM posts p
+		JOIN reactions r ON p.id = r.post_id
+		WHERE r.user_id = ? AND r.type = 'like'
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := r.db.Query(query, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var posts []*model.Post
+	var total int
+	for rows.Next() {
+		var p model.Post
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Title, &p.Content, &p.ImageURL, &p.CreatedAt, &total); err != nil {
+			return nil, 0, err
+		}
+		posts = append(posts, &p)
+	}
 	return posts, total, nil
 }
 
@@ -159,6 +199,11 @@ func (r *postRepository) List(offset, limit int) ([]*model.Post, int, error) {
 		); err != nil {
 			log.Printf("Error scanning post: %v", err)
 			return nil, 0, err
+		}
+		// Attach categories for each post
+		categories, err := r.categoryRepo.GetCategories(post.ID)
+		if err == nil {
+			post.Categories = categories
 		}
 		posts = append(posts, post)
 	}
