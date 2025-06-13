@@ -41,22 +41,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize inputs
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Nickname = strings.TrimSpace(req.Nickname)
 
-	// Validate inputs
 	if err := utils.ValidateEmail(req.Email); err != nil {
 		writeError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	if err := utils.ValidatePassword(req.Password); err != nil {
 		writeError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Check if email or nickname exists
 	if user, err := h.userRepo.GetByEmail(req.Email); err != nil {
 		writeError(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -64,7 +60,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "Email already exists", http.StatusConflict)
 		return
 	}
-
 	if user, err := h.userRepo.GetByNickname(req.Nickname); err != nil {
 		writeError(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -97,7 +92,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the created user to get the ID
 	createdUser, err := h.userRepo.GetByEmail(req.Email)
 	if err != nil || createdUser == nil {
 		writeError(w, "Failed to fetch created user", http.StatusInternalServerError)
@@ -118,7 +112,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	utils.SetAuthCookie(w, session.Token, session.ExpiresAt, h.cfg.IsProduction())
 	writeJSONResponse(w, http.StatusCreated, model.AuthResponse{
-		User:      createdUser.ToDTO(),
+		User:      *createdUser,
 		Token:     session.Token,
 		ExpiresAt: session.ExpiresAt,
 	})
@@ -169,7 +163,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	utils.SetAuthCookie(w, session.Token, session.ExpiresAt, h.cfg.IsProduction())
 	writeJSONResponse(w, http.StatusOK, model.AuthResponse{
-		User:      user.ToDTO(),
+		User:      *user,
 		Token:     session.Token,
 		ExpiresAt: session.ExpiresAt,
 	})
@@ -195,6 +189,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	utils.ClearAuthCookie(w, h.cfg.IsProduction())
 	w.WriteHeader(http.StatusOK)
 }
+
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok || userID == 0 {
