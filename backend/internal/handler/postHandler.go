@@ -12,12 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"real-time/backend/internal/middleware"
 	"real-time/backend/internal/model"
 	"real-time/backend/internal/repository"
-	"real-time/backend/internal/middleware"
 )
 
-// writeJSONResponse writes a JSON response with the given status code
 func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -27,7 +26,6 @@ func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	}
 }
 
-// writeError writes an error response with the given status code
 func writeError(w http.ResponseWriter, message string, status int) {
 	log.Printf("Error: %s", message)
 	http.Error(w, message, status)
@@ -135,18 +133,19 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.userRepo.GetByID(createdPost.UserID)
-	if err != nil {
+	if err != nil || user == nil {
 		writeError(w, "Failed to fetch user info", http.StatusInternalServerError)
 		return
 	}
+	createdPost.User = *user
 
 	h.wsHandler.BroadcastPostUpdate(WsMessage{
 		Type:   "post_created",
-		Data:   createdPost.ToDTO(user.ToDTO()),
+		Data:   createdPost,
 		PostID: createdPost.ID,
 	})
 
-	writeJSONResponse(w, http.StatusCreated, createdPost.ToDTO(user.ToDTO()))
+	writeJSONResponse(w, http.StatusCreated, createdPost)
 }
 
 func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
@@ -163,19 +162,31 @@ func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := &model.PostListDTO{
-		Posts:      make([]model.PostDTO, 0, len(posts)),
+	for i := range posts {
+		user, err := h.userRepo.GetByID(posts[i].UserID)
+		if err == nil && user != nil {
+			posts[i].User = *user
+		}
+	}
+
+	response := struct {
+		Posts      []model.Post `json:"posts"`
+		TotalPosts int64        `json:"totalPosts"`
+		Page       int          `json:"page"`
+		PageSize   int          `json:"pageSize"`
+	}{
+		Posts:      func() []model.Post {
+			result := make([]model.Post, len(posts))
+			for i, p := range posts {
+				if p != nil {
+					result[i] = *p
+				}
+			}
+			return result
+		}(),
 		TotalPosts: int64(total),
 		Page:       page,
 		PageSize:   limit,
-	}
-
-	for _, post := range posts {
-		user, err := h.userRepo.GetByID(post.UserID)
-		if err != nil || user == nil {
-			continue
-		}
-		response.Posts = append(response.Posts, post.ToDTO(user.ToDTO()))
 	}
 
 	writeJSONResponse(w, http.StatusOK, response)
@@ -201,19 +212,31 @@ func (h *PostHandler) GetPostsByUserID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := &model.PostListDTO{
-		Posts:      make([]model.PostDTO, 0, len(posts)),
+	for i := range posts {
+		user, err := h.userRepo.GetByID(posts[i].UserID)
+		if err == nil && user != nil {
+			posts[i].User = *user
+		}
+	}
+
+	response := struct {
+		Posts      []model.Post `json:"posts"`
+		TotalPosts int64        `json:"totalPosts"`
+		Page       int          `json:"page"`
+		PageSize   int          `json:"pageSize"`
+	}{
+		Posts: func() []model.Post {
+			result := make([]model.Post, len(posts))
+			for i, p := range posts {
+				if p != nil {
+					result[i] = *p
+				}
+			}
+			return result
+		}(),
 		TotalPosts: int64(total),
 		Page:       page,
 		PageSize:   limit,
-	}
-
-	for _, post := range posts {
-		user, err := h.userRepo.GetByID(post.UserID)
-		if err != nil || user == nil {
-			continue
-		}
-		response.Posts = append(response.Posts, post.ToDTO(user.ToDTO()))
 	}
 
 	writeJSONResponse(w, http.StatusOK, response)
@@ -247,7 +270,57 @@ func (h *PostHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "Failed to retrieve user information", http.StatusInternalServerError)
 		return
 	}
+	post.User = *user
 
-	response := post.ToDTO(user.ToDTO())
+	writeJSONResponse(w, http.StatusOK, post)
+}
+
+func (h *PostHandler) GetLikedPosts(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok || userID == 0 {
+		writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit := 10
+	offset := (page - 1) * limit
+
+	posts, total, err := h.postRepo.GetLikedPosts(userID, offset, limit)
+	if err != nil {
+		writeError(w, "Failed to fetch liked posts", http.StatusInternalServerError)
+		return
+	}
+
+	for i := range posts {
+		user, err := h.userRepo.GetByID(posts[i].UserID)
+		if err == nil && user != nil {
+			posts[i].User = *user
+		}
+	}
+
+	response := struct {
+		Posts      []model.Post `json:"posts"`
+		TotalPosts int64        `json:"totalPosts"`
+		Page       int          `json:"page"`
+		PageSize   int          `json:"pageSize"`
+	}{
+		Posts: func() []model.Post {
+			result := make([]model.Post, len(posts))
+			for i, p := range posts {
+				if p != nil {
+					result[i] = *p
+				}
+			}
+			return result
+		}(),
+		TotalPosts: int64(total),
+		Page:       page,
+		PageSize:   limit,
+	}
+
 	writeJSONResponse(w, http.StatusOK, response)
 }
