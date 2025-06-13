@@ -15,30 +15,22 @@ class AuthService {
             age: userData.age,
             gender: userData.gender
         };
-        try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Signup failed');
-            }
-            this.token = data.token;
-            localStorage.setItem('token', this.token);
-            this.userId = data.user.ID;
-            this.nickname = data.user.nickname;
-            return data.user;
-        } catch (error) {
-            throw error;
-        }
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Signup failed');
+        this.token = data.token;
+        localStorage.setItem('token', this.token);
+        this.userId = data.user.ID;
+        this.nickname = data.user.nickname;
+        return data.user;
     }
 
     async login(credentials) {
-    try {
-        const response = await fetch('/api/auth/login', {
+        const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -46,47 +38,24 @@ class AuthService {
                 password: credentials.password
             })
         });
-        const data = await response.json();
-        const expiresAt = data.expiresAt || data.expires_at;
-        if (response.ok) {
-            if (!data.token || !expiresAt) {
-                console.error('Login response missing token or expiresAt:', data);
-                throw new Error('Invalid login response');
-            }
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('expiresAt', expiresAt);
-            console.log('Stored token:', data.token, 'Expires:', expiresAt);
-            window.location.hash = '#home';
-            return data.user;
-        } else {
-            throw new Error(data.message || 'Login failed');
-        }
-    } catch (error) {
-        console.error('Login error:', error.message);
-        throw error;
+        const data = await res.json();
+        if (!res.ok || !data.token) throw new Error(data.message || 'Login failed');
+        localStorage.setItem('token', data.token);
+        this.token = data.token;
+        this.userId = data.user.ID;
+        this.nickname = data.user.nickname;
+        window.location.hash = '#home';
+        return data.user;
     }
-}
+
     getToken() {
-    const token = localStorage.getItem('token') || localStorage.getItem('expires_at');
-    const expiresAt = localStorage.getItem('expiresAt') || localStorage.getItem('expires_at');
-    if (!token || !expiresAt) {
-        if (!['#login', '#signup'].includes(window.location.hash)) {
+        const token = localStorage.getItem('token');
+        if (!token) {
             window.location.hash = '#login';
+            return null;
         }
-        return null;
+        return token;
     }
-    const expiryDate = new Date(expiresAt);
-    if (expiryDate < new Date()) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('expiresAt');
-        localStorage.removeItem('expires_at');
-        if (!['#login', '#signup'].includes(window.location.hash)) {
-            window.location.hash = '#login';
-        }
-        return null;
-    }
-    return token;
-}
 
     logout() {
         const token = this.getToken();
@@ -94,39 +63,31 @@ class AuthService {
             fetch('/api/auth/logout', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
-            }).then(() => {
+            }).finally(() => {
                 localStorage.removeItem('token');
-                localStorage.removeItem('expiresAt');
-                localStorage.removeItem('expires_at');
                 window.location.hash = '#login';
             });
         } else {
             window.location.hash = '#login';
         }
     }
+
     async getUser() {
         const token = this.getToken();
-        if (!token) {
-            throw new Error('No valid token found');
-        }
-        try {
-            const response = await fetch('/api/auth/profile', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) {
-                throw new Error('Failed to fetch user profile');
-            }
-            const data = await response.json();
-            this.userId = data.ID;
-            this.nickname = data.nickname;
-            return data;
-        } catch (error) {
-            throw error;
-        }
+        if (!token) throw new Error('No valid token found');
+        const res = await fetch('/api/auth/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch user profile');
+        const data = await res.json();
+        this.userId = data.ID;
+        this.nickname = data.nickname;
+        return data;
+    }
+    getCurrentUserId() {
+        return this.userId;
     }
 }
 
 const authService = new AuthService();
-
 export default authService;
