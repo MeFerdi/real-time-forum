@@ -14,63 +14,44 @@ import (
 	"real-time/backend/internal/repository"
 )
 
-// SetupRoutes configures the HTTP router with all application routes
 func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	mux := http.NewServeMux()
 
-	// Resolve absolute paths for static directories
-	staticBase, err := filepath.Abs("../frontend/static")
-	if err != nil {
-		log.Fatalf("Failed to resolve static base: %v", err)
-	}
+	staticBase, _ := filepath.Abs("../frontend/static")
 	jsDir := filepath.Join(staticBase, "js")
 	cssDir := filepath.Join(staticBase, "css")
-	uploadsDir, err := filepath.Abs("uploads")
-	if err != nil {
-		log.Fatalf("Failed to resolve uploads dir: %v", err)
-	}
+	uploadsDir, _ := filepath.Abs("uploads")
 
-	// Secure static file server (no directory listing, only allowed extensions)
-	secureFileServer := func(absDir string, allowedExts map[string]string) http.Handler {
+	serveStatic := func(dir string, exts map[string]string) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			relPath := strings.TrimPrefix(r.URL.Path, "/")
-			absPath := filepath.Join(absDir, relPath)
-			if !strings.HasPrefix(absPath, absDir) {
+			rel := strings.TrimPrefix(r.URL.Path, "/")
+			abs := filepath.Join(dir, rel)
+			if !strings.HasPrefix(abs, dir) {
 				http.NotFound(w, r)
 				return
 			}
-			fileInfo, err := os.Stat(absPath)
-			if err != nil || fileInfo.IsDir() {
+			info, err := os.Stat(abs)
+			if err != nil || info.IsDir() {
 				http.NotFound(w, r)
 				return
 			}
-			ext := strings.ToLower(filepath.Ext(absPath))
-			contentType, ok := allowedExts[ext]
-			if !ok {
-				http.NotFound(w, r)
+			ext := strings.ToLower(filepath.Ext(abs))
+			if ct, ok := exts[ext]; ok {
+				w.Header().Set("Content-Type", ct)
+				http.ServeFile(w, r, abs)
 				return
 			}
-			w.Header().Set("Content-Type", contentType)
-			http.ServeFile(w, r, absPath)
+			http.NotFound(w, r)
 		})
 	}
-
-	// Allowed extensions and MIME types
 	jsExts := map[string]string{".js": "application/javascript"}
 	cssExts := map[string]string{".css": "text/css"}
-	uploadExts := map[string]string{
-		".png":  "image/png",
-		".jpg":  "image/jpeg",
-		".jpeg": "image/jpeg",
-		".gif":  "image/gif",
-	}
+	uploadExts := map[string]string{".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif"}
 
-	// Serve static assets using absolute paths
-	mux.Handle("/js/", http.StripPrefix("/js/", secureFileServer(jsDir, jsExts)))
-	mux.Handle("/css/", http.StripPrefix("/css/", secureFileServer(cssDir, cssExts)))
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", secureFileServer(uploadsDir, uploadExts)))
+	mux.Handle("/js/", http.StripPrefix("/js/", serveStatic(jsDir, jsExts)))
+	mux.Handle("/css/", http.StripPrefix("/css/", serveStatic(cssDir, cssExts)))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", serveStatic(uploadsDir, uploadExts)))
 
-	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
@@ -78,7 +59,6 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	commentRepo := repository.NewCommentRepository(db)
 	reactionRepo := repository.NewReactionRepository(db)
 
-	// Handlers
 	authHandler := handler.NewAuthHandler(cfg, userRepo, sessionRepo)
 	wsHandler := handler.NewWebSocketHandler()
 	postHandler := handler.NewPostHandler(postRepo, userRepo, categoryRepo, wsHandler)
@@ -87,45 +67,36 @@ func SetupRoutes(db *sql.DB, cfg *config.Config) *http.Server {
 	messageHandler := handler.NewMessageHandler(userRepo, wsHandler)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo)
 
-	// Auth routes
+	// Auth
 	mux.HandleFunc("/api/auth/register", authHandler.Register)
 	mux.HandleFunc("/api/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/auth/logout", authHandler.Logout)
 	mux.Handle("/api/auth/me", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(authHandler.Me)))
 
-	// WebSocket route
+	// WebSocket
 	mux.Handle("/ws/messages", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(wsHandler.ServeHTTP)))
 
-	// Message routes
+	// Messages
 	mux.Handle("/api/messages/history", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(messageHandler.GetMessageHistory)))
 
-	// Post routes
+	// Posts
 	mux.Handle("/api/posts", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.ListPosts)))
 	mux.Handle("/api/posts/create", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.CreatePost)))
 	mux.Handle("/api/posts/by-user", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.GetPostsByUserID)))
 	mux.Handle("/api/posts/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(postHandler.GetPost)))
 
-	// Category routes
+	// Categories
 	mux.Handle("/api/categories", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(categoryHandler.GetAllCategories)))
 
-	// Comment routes
+	// Comments
 	mux.Handle("/api/posts/comments", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(commentHandler.GetComments)))
 	mux.Handle("/api/posts/comments/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(commentHandler.AddComment)))
-	mux.Handle("/api/comments/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPut:
-			commentHandler.UpdateComment(w, r)
-		case http.MethodDelete:
-			commentHandler.DeleteComment(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})))
+	mux.Handle("/api/comments/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(commentHandler.UpdateOrDeleteComment)))
 
-	// Reaction routes
+	// Reactions
 	mux.Handle("/api/posts/react/", middleware.SessionAuthMiddleware(sessionRepo)(http.HandlerFunc(reactionHandler.HandlePostReaction)))
 
-	// SPA catch-all: serve main.html for all other GET requests
+	// SPA catch-all
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet ||
 			strings.HasPrefix(r.URL.Path, "/api/") ||
