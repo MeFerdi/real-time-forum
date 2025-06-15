@@ -44,24 +44,31 @@ func main() {
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db)
 
-	// Register public routes
-	http.HandleFunc("/api/register", userHandler.Register)
-	http.HandleFunc("/api/login", userHandler.Login)
-	http.HandleFunc("/api/logout", userHandler.Logout)
-	http.HandleFunc("/api/categories", postHandler.ListCategories)
+	// Create router
+	mux := http.NewServeMux()
+
+	// Serve static files for frontend
+	fs := http.FileServer(http.Dir("../frontend"))
+	mux.Handle("/", http.StripPrefix("/", fs))
+
+	// Register public API routes
+	mux.HandleFunc("/api/register", userHandler.Register)
+	mux.HandleFunc("/api/login", userHandler.Login)
+	mux.HandleFunc("/api/logout", userHandler.Logout)
+	mux.HandleFunc("/api/categories", postHandler.ListCategories)
 
 	// Register protected routes
-	http.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
-	http.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
-	http.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
-	http.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
-	http.HandleFunc("/api/comments", auth.RequireAuth(postHandler.CreateComment, db))
-	http.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
-	http.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
+	mux.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
+	mux.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
+	mux.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
+	mux.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
+	mux.HandleFunc("/api/comments", auth.RequireAuth(postHandler.CreateComment, db))
+	mux.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
+	mux.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
