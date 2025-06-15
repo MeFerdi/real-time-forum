@@ -62,10 +62,12 @@ func InitializeSchema(db *sql.DB) error {
 			post_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
 			content TEXT NOT NULL,
+			parent_id INTEGER,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
 		);
 	`)
 	if err != nil {
