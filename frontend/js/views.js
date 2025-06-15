@@ -14,8 +14,7 @@ class Views {
         // Form submissions
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
         document.getElementById('register-form').addEventListener('submit', (e) => this.handleRegister(e));
-        document.getElementById('comment-form').addEventListener('submit', (e) => this.handleComment(e));
-        document.getElementById('chat-form').addEventListener('submit', (e) => this.handleChatMessage(e));
+        document.getElementById('chat-form')?.addEventListener('submit', (e) => this.handleChatMessage(e));
 
         // Feed events
         document.getElementById('categoryFilter').addEventListener('change', (e) => this.loadPosts(e.target.value));
@@ -90,7 +89,15 @@ class Views {
     async loadPost(postId) {
         const result = await API.getPost(postId);
         if (result.success) {
+            this.currentPostId = result.data.id; // Set current post ID
             document.getElementById('post-detail').innerHTML = this.renderPostDetail(result.data);
+            
+            // Rebind comment form submit event after rendering
+            const commentForm = document.getElementById('comment-form');
+            if (commentForm) {
+                commentForm.addEventListener('submit', (e) => this.handleComment(e));
+            }
+            
             router.navigate('/post');
         }
     }
@@ -106,7 +113,25 @@ class Views {
         const result = await API.createComment(commentData);
         if (result.success) {
             e.target.reset();
-            this.loadPost(this.currentPostId);
+            const commentsContainer = document.getElementById('comments-container');
+            const newComment = result.data;
+            
+            // Add the new comment to the UI
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment';
+            commentElement.innerHTML = `
+                <p>${newComment.content}</p>
+                <div class="comment-meta">
+                    <span>By ${newComment.author.username}</span>
+                    <span>${new Date(newComment.created_at).toLocaleString()}</span>
+                    <button onclick="views.handleCommentLike(${newComment.id})">
+                        💗 ${newComment.like_count || 0}
+                    </button>
+                </div>
+            `;
+            commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
+        } else {
+            alert('Failed to add comment: ' + (result.error || 'Unknown error'));
         }
     }
 
@@ -185,8 +210,33 @@ class Views {
                         💗 ${post.like_count}
                     </button>
                 </div>
+                <div id="comments-section">
+                    <h3>Comments</h3>
+                    <form id="comment-form" class="comment-form">
+                        <textarea name="content" placeholder="Write a comment..." required></textarea>
+                        <button type="submit">Add Comment</button>
+                    </form>
+                    <div id="comments-container">
+                        ${this.renderComments(post.comments || [])}
+                    </div>
+                </div>
             </div>
         `;
+    }
+
+    renderComments(comments) {
+        return comments.map(comment => `
+            <div class="comment">
+                <p>${comment.content}</p>
+                <div class="comment-meta">
+                    <span>By ${comment.author.username}</span>
+                    <span>${new Date(comment.created_at).toLocaleString()}</span>
+                    <button onclick="views.handleCommentLike(${comment.id})">
+                        💗 ${comment.like_count}
+                    </button>
+                </div>
+            </div>
+        `).join('');
     }
 
     async handleLike(postId) {
