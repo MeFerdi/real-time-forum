@@ -183,3 +183,29 @@ func GetUserBySessionToken(db *sql.DB, token string) (*User, error) {
 	}
 	return &user, nil
 }
+
+// GetUserByID retrieves a user by their ID
+func GetUserByID(db *sql.DB, id int64) (*User, error) {
+	query := `SELECT id, username, email, password_hash, first_name, last_name, age, gender, created_at 
+			  FROM users WHERE id = ?`
+
+	var user User
+	err := db.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FirstName,
+		&user.LastName,
+		&user.Age,
+		&user.Gender,
+		&user.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
