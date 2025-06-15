@@ -10,7 +10,6 @@ import (
 	"real-time-forum/internal/auth"
 	"real-time-forum/internal/database"
 	"real-time-forum/internal/handlers"
-	"real-time-forum/internal/websocket"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -41,11 +40,6 @@ func main() {
 		log.Fatalf("Failed to initialize schema: %v", err)
 	}
 
-	// Initialize WebSocket hub
-	hub := websocket.NewHub()
-	go hub.Run()
-	wsHandler := websocket.NewHandler(hub)
-
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db)
@@ -64,9 +58,6 @@ func main() {
 	http.HandleFunc("/api/comments", auth.RequireAuth(postHandler.CreateComment, db))
 	http.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
 	http.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
-
-	// Register WebSocket route
-	http.HandleFunc("/api/ws", auth.RequireAuth(wsHandler.ServeWS, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
