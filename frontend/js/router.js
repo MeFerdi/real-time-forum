@@ -46,6 +46,14 @@ class Router {
         const section = document.getElementById(sectionId);
         if (section) {
             section.classList.add('active');
+            
+            // Reset comment form if navigating away from post view
+            if (path !== '/post') {
+                const commentForm = document.getElementById('comment-form');
+                if (commentForm) {
+                    commentForm.reset();
+                }
+            }
         }
     }
 }
