@@ -10,6 +10,10 @@ class Views {
         document.getElementById('loginBtn').addEventListener('click', () => router.navigate('/login'));
         document.getElementById('registerBtn').addEventListener('click', () => router.navigate('/register'));
         document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
+        document.getElementById('homeBtn').addEventListener('click', () => router.navigate('/'));
+        document.getElementById('chatBtn').addEventListener('click', () => router.navigate('/chat'));
+        document.getElementById('profileBtn').addEventListener('click', () => this.showProfile());
+        document.querySelector('.nav-left h1').addEventListener('click', () => router.navigate('/'));
 
         // Form submissions
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
@@ -69,6 +73,18 @@ class Views {
             this.currentUser = null;
             router.setAuthenticated(false);
             router.navigate('/login');
+            // Add a success message to the login form
+            const loginSection = document.getElementById('login-section');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message success';
+            messageDiv.textContent = 'Successfully logged out. Please log in to continue.';
+            const existingMessage = loginSection.querySelector('.message');
+            if (existingMessage) {
+                loginSection.removeChild(existingMessage);
+            }
+            loginSection.insertBefore(messageDiv, document.getElementById('login-form'));
+        } else {
+            alert('Logout failed: ' + (result.error || 'Unknown error'));
         }
     }
 
@@ -262,6 +278,43 @@ class Views {
             }
         } else {
             alert('Failed to like comment: ' + (result.error || 'Unknown error'));
+        }
+    }
+
+    async showProfile() {
+        try {
+            const result = await API.getProfile();
+            if (result.success) {
+                const modal = document.createElement('div');
+                modal.className = 'modal active';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <span class="close">&times;</span>
+                        <h2>Profile</h2>
+                        <div class="profile-info">
+                            <p><strong>Username:</strong> ${result.data.username}</p>
+                            <p><strong>Email:</strong> ${result.data.email}</p>
+                            <p><strong>Name:</strong> ${result.data.first_name} ${result.data.last_name}</p>
+                            <p><strong>Age:</strong> ${result.data.age}</p>
+                            <p><strong>Gender:</strong> ${result.data.gender}</p>
+                            <p><strong>Member since:</strong> ${new Date(result.data.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                const closeBtn = modal.querySelector('.close');
+                closeBtn.onclick = () => document.body.removeChild(modal);
+                window.onclick = (e) => {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
+                    }
+                };
+            }
+        } catch (error) {
+            console.error('Failed to load profile:', error);
+            alert('Failed to load profile');
         }
     }
 
