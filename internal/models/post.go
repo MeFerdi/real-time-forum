@@ -16,6 +16,7 @@ type Post struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	Author     *User      `json:"author,omitempty"`
+	LikeCount  int        `json:"like_count"`
 }
 
 type Comment struct {
@@ -28,6 +29,7 @@ type Comment struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Author    *User     `json:"author,omitempty"`
+	LikeCount int       `json:"like_count"`
 }
 
 type Category struct {
@@ -106,10 +108,11 @@ func CreatePost(db *sql.DB, userID int64, req CreatePostRequest) (*Post, error) 
 
 // GetPostByID retrieves a post by its ID, including categories and author
 func GetPostByID(db *sql.DB, id int64) (*Post, error) {
-	// Get post
+	// Get post with like count
 	post := &Post{}
 	err := db.QueryRow(`
-		SELECT p.id, p.user_id, p.title, p.content, p.created_at, p.updated_at
+		SELECT p.id, p.user_id, p.title, p.content, p.created_at, p.updated_at,
+		       (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count
 		FROM posts p
 		WHERE p.id = ?`, id).Scan(
 		&post.ID,
@@ -118,6 +121,7 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 		&post.Content,
 		&post.CreatedAt,
 		&post.UpdatedAt,
+		&post.LikeCount,
 	)
 	if err != nil {
 		return nil, err
@@ -190,6 +194,12 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 		}
 
 		post.Comments = append(post.Comments, comment)
+	}
+
+	// Get like count
+	post.LikeCount, err = GetPostLikes(db, post.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	return post, nil
@@ -276,6 +286,84 @@ func ListPosts(db *sql.DB) ([]Post, error) {
 		}
 		post.Author = author
 
+		// Get like count
+		post.LikeCount, err = GetPostLikes(db, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		posts = append(posts, post)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
+
+// ListPostsByCategory returns all posts in a specific category
+func ListPostsByCategory(db *sql.DB, categoryID int64) ([]Post, error) {
+	// Get posts with a specific category
+	rows, err := db.Query(`
+		SELECT DISTINCT p.id, p.user_id, p.title, p.content, p.created_at, p.updated_at
+		FROM posts p
+		JOIN post_categories pc ON p.id = pc.post_id
+		WHERE pc.category_id = ?
+		ORDER BY p.created_at DESC`, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Title,
+			&post.Content,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get categories for this post
+		catRows, err := db.Query(`
+			SELECT c.id, c.name, c.description, c.created_at
+			FROM categories c
+			JOIN post_categories pc ON c.id = pc.category_id
+			WHERE pc.post_id = ?`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer catRows.Close()
+
+		for catRows.Next() {
+			var cat Category
+			err := catRows.Scan(&cat.ID, &cat.Name, &cat.Description, &cat.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+			post.Categories = append(post.Categories, cat)
+		}
+
+		// Get author
+		author, err := GetUserByID(db, post.UserID)
+		if err != nil {
+			return nil, err
+		}
+		post.Author = author
+
+		// Get like count
+		post.LikeCount, err = GetPostLikes(db, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
 		posts = append(posts, post)
 	}
 
@@ -337,9 +425,10 @@ func CreateComment(db *sql.DB, postID, userID int64, req CreateCommentRequest) (
 func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 	comment := &Comment{}
 	err := db.QueryRow(`
-		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
-		FROM comments
-		WHERE id = ?`, id).Scan(
+		SELECT c.id, c.post_id, c.user_id, c.content, c.parent_id, c.created_at, c.updated_at,
+		       (SELECT COUNT(*) FROM likes WHERE comment_id = c.id) as like_count
+		FROM comments c
+		WHERE c.id = ?`, id).Scan(
 		&comment.ID,
 		&comment.PostID,
 		&comment.UserID,
@@ -347,6 +436,7 @@ func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 		&comment.ParentID,
 		&comment.CreatedAt,
 		&comment.UpdatedAt,
+		&comment.LikeCount,
 	)
 	if err != nil {
 		return nil, err
@@ -395,6 +485,12 @@ func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 		comment.Replies = append(comment.Replies, reply)
 	}
 
+	// Get like count
+	comment.LikeCount, err = GetCommentLikes(db, comment.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return comment, nil
 }
 
@@ -437,6 +533,94 @@ func getCommentReplies(db *sql.DB, parentID int64) ([]Comment, error) {
 	}
 
 	return replies, nil
+}
+
+// LikePost records a like for a post by a user
+func LikePost(db *sql.DB, postID, userID int64) error {
+	// Check if the post exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("post not found")
+	}
+
+	// Check if the user has already liked this post
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?)",
+		postID, userID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		// If like exists, remove it (unlike)
+		_, err := db.Exec("DELETE FROM likes WHERE post_id = ? AND user_id = ?", postID, userID)
+		return err
+	}
+
+	// Add new like
+	_, err = db.Exec("INSERT INTO likes (post_id, user_id) VALUES (?, ?)", postID, userID)
+	return err
+}
+
+// LikeComment records a like for a comment by a user
+func LikeComment(db *sql.DB, commentID, userID int64) error {
+	// Check if the comment exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM comments WHERE id = ?)", commentID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("comment not found")
+	}
+
+	// Check if the user has already liked this comment
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE comment_id = ? AND user_id = ?)",
+		commentID, userID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		// If like exists, remove it (unlike)
+		_, err := db.Exec("DELETE FROM likes WHERE comment_id = ? AND user_id = ?", commentID, userID)
+		return err
+	}
+
+	// Add new like
+	_, err = db.Exec("INSERT INTO likes (comment_id, user_id) VALUES (?, ?)", commentID, userID)
+	return err
+}
+
+// GetPostLikes returns the number of likes for a post
+func GetPostLikes(db *sql.DB, postID int64) (int, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM likes WHERE post_id = ?", postID).Scan(&count)
+	return count, err
+}
+
+// GetCommentLikes returns the number of likes for a comment
+func GetCommentLikes(db *sql.DB, commentID int64) (int, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM likes WHERE comment_id = ?", commentID).Scan(&count)
+	return count, err
+}
+
+// HasUserLikedPost checks if a user has liked a post
+func HasUserLikedPost(db *sql.DB, postID, userID int64) (bool, error) {
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?)",
+		postID, userID).Scan(&exists)
+	return exists, err
+}
+
+// HasUserLikedComment checks if a user has liked a comment
+func HasUserLikedComment(db *sql.DB, commentID, userID int64) (bool, error) {
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE comment_id = ? AND user_id = ?)",
+		commentID, userID).Scan(&exists)
+	return exists, err
 }
 
 func validateCreatePostRequest(req CreatePostRequest) error {
