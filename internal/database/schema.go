@@ -85,6 +85,18 @@ func InitializeSchema(db *sql.DB) error {
 		return err
 	}
 
+	// Insert default categories if they don't exist
+	_, err = db.Exec(`
+		INSERT OR IGNORE INTO categories (name, description) VALUES 
+		('Technology', 'Discussions about tech and programming'),
+		('Gaming', 'Video games and gaming culture'),
+		('Movies', 'Film discussions and reviews'),
+		('Music', 'Music-related discussions')
+	`)
+	if err != nil {
+		return err
+	}
+
 	// Create post_categories table (many-to-many relationship)
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS post_categories (
