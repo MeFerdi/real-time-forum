@@ -130,3 +130,55 @@ func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(posts)
 }
+
+// CreateComment handles comment creation for a post
+func (h *PostHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get post ID from URL query parameters
+	postIDStr := r.URL.Query().Get("post_id")
+	if postIDStr == "" {
+		http.Error(w, "Missing post ID", http.StatusBadRequest)
+		return
+	}
+
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userID, ok := auth.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req models.CreateCommentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	comment, err := models.CreateComment(h.db, postID, userID, req)
+	if err != nil {
+		switch err {
+		case models.ErrEmptyComment:
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		case models.ErrPostNotFound:
+			http.Error(w, err.Error(), http.StatusNotFound)
+		default:
+			log.Printf("Error creating comment: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(comment)
+}
