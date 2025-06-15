@@ -54,6 +54,7 @@ func main() {
 	http.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
 	http.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
 	http.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
+	http.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
