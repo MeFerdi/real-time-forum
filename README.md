@@ -1,36 +1,59 @@
-## Real-Time Forum
+# Real-Time Forum
 
-This is a Single Page Application(SPA) built to mimick a social media platform. Built using :
+A real-time forum application built with Go and SQLite.
 
-**JavaScript & HTML** - Client Side
+## Project Structure
 
-**Go** - Server Side
+```
+.
+├── cmd
+│   └── api
+│       └── main.go
+└── internal
+    ├── config
+    ├── database
+    ├── handlers
+    └── models
+```
 
+## Features
 
-For the current setup:
-Create .env file at the root directory and add the following content
-```sh # Server Configuration
-SERVER_ADDRESS=:8080
-READ_TIMEOUT=15s
-WRITE_TIMEOUT=15s
-IDLE_TIMEOUT=60s
+- User authentication and sessions
+- Posts and comments
+- Categories and tags
+- Likes system
+- Private messaging
+- Real-time updates
 
-# Database Configuration
-DATABASE_URL=file:data.db?cache=shared&_fk=1
-DB_MAX_OPEN_CONNS=25
-DB_MAX_IDLE_CONNS=25
-DB_CONN_MAX_LIFETIME=5m
+## Database Schema
 
-# Auth Configuration
-SESSION_SECRET=your-strong-secret-key-here
-SESSION_TIMEOUT=24h
+The application uses SQLite with the following tables:
 
-# WebSocket Configuration
-WS_READ_BUFFER=1024
-WS_WRITE_BUFFER=1024
-WS_PING_INTERVAL=30s
+- `users`: Store user information
+- `sessions`: Manage user sessions
+- `posts`: Store forum posts
+- `comments`: Store post comments
+- `categories`: Define post categories
+- `post_categories`: Link posts to categories
+- `likes`: Track likes on posts and comments
+- `messages`: Store private messages between users
 
-# Environment
-ENVIRONMENT=development
-```sh
-Note: Auth configuration is yet to be implemented. Do not worry about that lol
+## Getting Started
+
+1. Ensure you have Go installed
+2. Clone the repository
+3. Run the application:
+   ```bash
+   go run cmd/api/main.go
+   ```
+4. The server will start on port 8080
+
+## Development
+
+The application is structured following clean architecture principles:
+
+- `cmd/api`: Application entry point
+- `internal/config`: Configuration management
+- `internal/database`: Database operations
+- `internal/handlers`: HTTP request handlers
+- `internal/models`: Data models and business logic
