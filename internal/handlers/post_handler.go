@@ -112,3 +112,21 @@ func (h *PostHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(categories)
 }
+
+// ListPosts handles retrieving all posts
+func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	posts, err := models.ListPosts(h.db)
+	if err != nil {
+		log.Printf("Error listing posts: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(posts)
+}
