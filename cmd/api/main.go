@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"real-time-forum/internal/database"
+	"real-time-forum/internal/handlers"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -37,6 +38,12 @@ func main() {
 	if err := database.InitializeSchema(db); err != nil {
 		log.Fatalf("Failed to initialize schema: %v", err)
 	}
+
+	// Initialize handlers
+	userHandler := handlers.NewUserHandler(db)
+
+	// Register routes
+	http.HandleFunc("/api/register", userHandler.Register)
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
