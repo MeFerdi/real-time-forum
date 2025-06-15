@@ -12,9 +12,22 @@ type Post struct {
 	Title      string     `json:"title"`
 	Content    string     `json:"content"`
 	Categories []Category `json:"categories"`
+	Comments   []Comment  `json:"comments,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	Author     *User      `json:"author,omitempty"`
+}
+
+type Comment struct {
+	ID        int64     `json:"id"`
+	PostID    int64     `json:"post_id"`
+	UserID    int64     `json:"user_id"`
+	Content   string    `json:"content"`
+	ParentID  *int64    `json:"parent_id,omitempty"`
+	Replies   []Comment `json:"replies,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Author    *User     `json:"author,omitempty"`
 }
 
 type Category struct {
@@ -30,11 +43,18 @@ type CreatePostRequest struct {
 	CategoryIDs []int64 `json:"category_ids"`
 }
 
+type CreateCommentRequest struct {
+	Content  string `json:"content"`
+	ParentID *int64 `json:"parent_id,omitempty"`
+}
+
 var (
 	ErrEmptyTitle      = errors.New("title cannot be empty")
 	ErrEmptyContent    = errors.New("content cannot be empty")
 	ErrNoCategories    = errors.New("at least one category must be selected")
 	ErrInvalidCategory = errors.New("one or more categories are invalid")
+	ErrEmptyComment    = errors.New("comment content cannot be empty")
+	ErrPostNotFound    = errors.New("post not found")
 )
 
 // CreatePost creates a new post and links it with the specified categories
@@ -130,6 +150,48 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 	}
 	post.Author = author
 
+	// Get comments (only parent comments)
+	rows, err = db.Query(`
+		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
+		FROM comments
+		WHERE post_id = ? AND parent_id IS NULL
+		ORDER BY created_at ASC`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var comment Comment
+		err := rows.Scan(
+			&comment.ID,
+			&comment.PostID,
+			&comment.UserID,
+			&comment.Content,
+			&comment.ParentID,
+			&comment.CreatedAt,
+			&comment.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get comment author
+		commentAuthor, err := GetUserByID(db, comment.UserID)
+		if err != nil {
+			return nil, err
+		}
+		comment.Author = commentAuthor
+
+		// Get replies
+		comment.Replies, err = getCommentReplies(db, comment.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		post.Comments = append(post.Comments, comment)
+	}
+
 	return post, nil
 }
 
@@ -222,6 +284,159 @@ func ListPosts(db *sql.DB) ([]Post, error) {
 	}
 
 	return posts, nil
+}
+
+// CreateComment adds a new comment to a post
+func CreateComment(db *sql.DB, postID, userID int64, req CreateCommentRequest) (*Comment, error) {
+	if req.Content == "" {
+		return nil, ErrEmptyComment
+	}
+
+	// Check if post exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrPostNotFound
+	}
+
+	// If parent_id is provided, check if it exists and belongs to the same post
+	if req.ParentID != nil {
+		err := db.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1 FROM comments 
+				WHERE id = ? AND post_id = ?
+			)`, req.ParentID, postID).Scan(&exists)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, errors.New("parent comment not found or doesn't belong to this post")
+		}
+	}
+
+	result, err := db.Exec(`
+		INSERT INTO comments (post_id, user_id, content, parent_id)
+		VALUES (?, ?, ?, ?)`,
+		postID, userID, req.Content, req.ParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	commentID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return GetCommentByID(db, commentID)
+}
+
+// GetCommentByID retrieves a comment by its ID
+func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
+	comment := &Comment{}
+	err := db.QueryRow(`
+		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
+		FROM comments
+		WHERE id = ?`, id).Scan(
+		&comment.ID,
+		&comment.PostID,
+		&comment.UserID,
+		&comment.Content,
+		&comment.ParentID,
+		&comment.CreatedAt,
+		&comment.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get author
+	author, err := GetUserByID(db, comment.UserID)
+	if err != nil {
+		return nil, err
+	}
+	comment.Author = author
+
+	// Get replies if this is a parent comment
+	rows, err := db.Query(`
+		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
+		FROM comments
+		WHERE parent_id = ?
+		ORDER BY created_at ASC`, comment.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var reply Comment
+		err := rows.Scan(
+			&reply.ID,
+			&reply.PostID,
+			&reply.UserID,
+			&reply.Content,
+			&reply.ParentID,
+			&reply.CreatedAt,
+			&reply.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get reply author
+		replyAuthor, err := GetUserByID(db, reply.UserID)
+		if err != nil {
+			return nil, err
+		}
+		reply.Author = replyAuthor
+
+		comment.Replies = append(comment.Replies, reply)
+	}
+
+	return comment, nil
+}
+
+// getCommentReplies returns all replies for a given comment
+func getCommentReplies(db *sql.DB, parentID int64) ([]Comment, error) {
+	rows, err := db.Query(`
+		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
+		FROM comments
+		WHERE parent_id = ?
+		ORDER BY created_at ASC`, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var replies []Comment
+	for rows.Next() {
+		var reply Comment
+		err := rows.Scan(
+			&reply.ID,
+			&reply.PostID,
+			&reply.UserID,
+			&reply.Content,
+			&reply.ParentID,
+			&reply.CreatedAt,
+			&reply.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get reply author
+		replyAuthor, err := GetUserByID(db, reply.UserID)
+		if err != nil {
+			return nil, err
+		}
+		reply.Author = replyAuthor
+
+		replies = append(replies, reply)
+	}
+
+	return replies, nil
 }
 
 func validateCreatePostRequest(req CreatePostRequest) error {
