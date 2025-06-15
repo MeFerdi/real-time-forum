@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"real-time-forum/backend/internal/auth"
 	"real-time-forum/backend/internal/models"
@@ -336,4 +338,132 @@ func (h *PostHandler) LikeComment(w http.ResponseWriter, r *http.Request) {
 		"like_count": likeCount,
 		"has_liked":  hasLiked,
 	})
+}
+
+// HandlePostRoutes handles all post-related routes
+func (h *PostHandler) HandlePostRoutes(w http.ResponseWriter, r *http.Request) {
+	// Extract post ID and action from path
+	path := strings.TrimPrefix(r.URL.Path, "/api/posts/")
+	parts := strings.Split(path, "/")
+
+	// Handle create, get, like endpoints
+	if len(parts) == 1 {
+		switch parts[0] {
+		case "create":
+			h.CreatePost(w, r)
+			return
+		case "get":
+			h.GetPost(w, r)
+			return
+		case "like":
+			h.LikePost(w, r)
+			return
+		}
+	}
+
+	// Handle comments and other post-specific endpoints
+	if len(parts) == 2 {
+		postID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid post ID", http.StatusBadRequest)
+			return
+		}
+
+		action := parts[1]
+		switch action {
+		case "comments":
+			h.handleComments(w, r, postID)
+			return
+		}
+	}
+
+	http.Error(w, "Unknown action", http.StatusNotFound)
+}
+
+func (h *PostHandler) handleComments(w http.ResponseWriter, r *http.Request, postID int64) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from context
+	userID, ok := auth.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Verify post exists
+	var exists bool
+	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&exists)
+	if err != nil {
+		log.Printf("Error checking post existence: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	// Parse comment content
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Content == "" {
+		http.Error(w, "Comment content cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	// Create comment
+	comment := &models.Comment{
+		PostID:    postID,
+		UserID:    userID,
+		Content:   req.Content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Save comment to database
+	result, err := h.db.Exec(`
+		INSERT INTO comments (post_id, user_id, content, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?)`,
+		comment.PostID, comment.UserID, comment.Content, comment.CreatedAt, comment.UpdatedAt)
+	if err != nil {
+		log.Printf("Error creating comment: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Get comment ID
+	commentID, err := result.LastInsertId()
+	if err != nil {
+		log.Printf("Error getting comment ID: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	comment.ID = commentID
+
+	// Get author details
+	var author models.User
+	err = h.db.QueryRow(`
+		SELECT id, username, email, first_name, last_name, age, gender, created_at
+		FROM users WHERE id = ?`, userID).Scan(
+		&author.ID, &author.Username, &author.Email, &author.FirstName,
+		&author.LastName, &author.Age, &author.Gender, &author.CreatedAt)
+	if err != nil {
+		log.Printf("Error getting author: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	comment.Author = &author
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(comment)
 }
