@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"real-time-forum/internal/auth"
 	"real-time-forum/internal/database"
 	"real-time-forum/internal/handlers"
 
@@ -42,8 +43,13 @@ func main() {
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
 
-	// Register routes
+	// Register public routes
 	http.HandleFunc("/api/register", userHandler.Register)
+	http.HandleFunc("/api/login", userHandler.Login)
+	http.HandleFunc("/api/logout", userHandler.Logout)
+
+	// Register protected routes
+	http.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
