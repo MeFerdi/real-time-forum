@@ -42,14 +42,18 @@ func main() {
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
+	postHandler := handlers.NewPostHandler(db)
 
 	// Register public routes
 	http.HandleFunc("/api/register", userHandler.Register)
 	http.HandleFunc("/api/login", userHandler.Login)
 	http.HandleFunc("/api/logout", userHandler.Logout)
+	http.HandleFunc("/api/categories", postHandler.ListCategories)
 
 	// Register protected routes
 	http.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
+	http.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
+	http.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
