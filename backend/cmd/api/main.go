@@ -62,7 +62,7 @@ func main() {
 	mux.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
 	mux.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
 	mux.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
-	mux.HandleFunc("/api/comments", auth.RequireAuth(postHandler.CreateComment, db))
+	mux.HandleFunc("/api/posts/", auth.RequireAuth(postHandler.HandlePostRoutes, db))
 	mux.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
 	mux.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
 
