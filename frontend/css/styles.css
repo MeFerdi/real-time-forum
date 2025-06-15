@@ -137,8 +137,42 @@ button:hover {
     margin-bottom: 2rem;
 }
 
+/* Comments Styles */
 #comments-section {
     margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #ddd;
+}
+
+#comments-section h3 {
+    margin-bottom: 1rem;
+}
+
+.comment-form {
+    margin: 1rem 0;
+    background: #f8f9fa;
+}
+
+.comment {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.comment-meta {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.comment-meta button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
 }
 
 /* Chat Section */
