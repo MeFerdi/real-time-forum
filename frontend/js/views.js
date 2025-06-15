@@ -242,7 +242,26 @@ class Views {
     async handleLike(postId) {
         const result = await API.likePost(postId);
         if (result.success) {
-            this.loadPost(postId);
+            // Update only the like count without reloading the whole post
+            const likeButton = document.querySelector(`button[onclick="views.handleLike(${postId})"]`);
+            if (likeButton) {
+                likeButton.innerHTML = `💗 ${result.data.like_count}`;
+            }
+        } else {
+            alert('Failed to like post: ' + (result.error || 'Unknown error'));
+        }
+    }
+
+    async handleCommentLike(commentId) {
+        const result = await API.likeComment(commentId);
+        if (result.success) {
+            // Update only the comment like count
+            const likeButton = document.querySelector(`button[onclick="views.handleCommentLike(${commentId})"]`);
+            if (likeButton) {
+                likeButton.innerHTML = `💗 ${result.data.like_count}`;
+            }
+        } else {
+            alert('Failed to like comment: ' + (result.error || 'Unknown error'));
         }
     }
 

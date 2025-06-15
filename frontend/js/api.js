@@ -72,16 +72,14 @@ const API = {
     },
 
     async likePost(postId) {
-        return await this.request('/posts/like', {
-            method: 'POST',
-            body: JSON.stringify({ post_id: postId })
+        return await this.request(`/posts/like?post_id=${postId}`, {
+            method: 'POST'
         });
     },
 
     async likeComment(commentId) {
-        return await this.request('/comments/like', {
-            method: 'POST',
-            body: JSON.stringify({ comment_id: commentId })
+        return await this.request(`/comments/like?comment_id=${commentId}`, {
+            method: 'POST'
         });
     },
 
