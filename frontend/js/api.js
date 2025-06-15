@@ -64,9 +64,10 @@ const API = {
     },
 
     async createComment(commentData) {
-        return await this.request('/comments', {
+        return await this.request(`/posts/${commentData.post_id}/comments`, {
             method: 'POST',
-            body: JSON.stringify(commentData)
+            body: JSON.stringify({ content: commentData.content }),
+            credentials: 'include'
         });
     },
 
