@@ -374,6 +374,77 @@ func ListPostsByCategory(db *sql.DB, categoryID int64) ([]Post, error) {
 	return posts, nil
 }
 
+// ListPostsByUserID returns all posts created by a specific user
+func ListPostsByUserID(db *sql.DB, userID int64) ([]Post, error) {
+	// Get posts by user
+	rows, err := db.Query(`
+		SELECT p.id, p.user_id, p.title, p.content, p.created_at, p.updated_at
+		FROM posts p
+		WHERE p.user_id = ?
+		ORDER BY p.created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Title,
+			&post.Content,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get categories for this post
+		catRows, err := db.Query(`
+			SELECT c.id, c.name, c.description, c.created_at
+			FROM categories c
+			JOIN post_categories pc ON c.id = pc.category_id
+			WHERE pc.post_id = ?`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer catRows.Close()
+
+		for catRows.Next() {
+			var cat Category
+			err := catRows.Scan(&cat.ID, &cat.Name, &cat.Description, &cat.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+			post.Categories = append(post.Categories, cat)
+		}
+
+		// Get author
+		author, err := GetUserByID(db, post.UserID)
+		if err != nil {
+			return nil, err
+		}
+		post.Author = author
+
+		// Get like count
+		post.LikeCount, err = GetPostLikes(db, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		posts = append(posts, post)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
+
 // CreateComment adds a new comment to a post
 func CreateComment(db *sql.DB, postID, userID int64, req CreateCommentRequest) (*Comment, error) {
 	if req.Content == "" {
