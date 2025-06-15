@@ -56,6 +56,8 @@ func main() {
 	http.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
 	http.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
 	http.HandleFunc("/api/comments", auth.RequireAuth(postHandler.CreateComment, db))
+	http.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
+	http.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
