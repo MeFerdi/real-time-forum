@@ -113,43 +113,55 @@ func (h *PostHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(categories)
 }
 
-// ListPosts handles retrieving all posts, optionally filtered by category
+// ListPosts handles retrieving all posts, optionally filtered by category or creator
 func (h *PostHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Check for category filter
-	categoryIDStr := r.URL.Query().Get("category_id")
 	var posts []models.Post
 	var err error
 
-	if categoryIDStr != "" {
-		// If category_id is provided, filter by category
-		categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Invalid category ID", http.StatusBadRequest)
+	// Check for my_posts filter (user's own posts)
+	myPosts := r.URL.Query().Get("my_posts")
+	if myPosts == "true" {
+		// Get user ID from context (set by auth middleware)
+		userID, ok := auth.GetUserID(r)
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-
-		// Verify category exists
-		var exists bool
-		err = h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM categories WHERE id = ?)", categoryID).Scan(&exists)
-		if err != nil {
-			log.Printf("Error checking category existence: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-		if !exists {
-			http.Error(w, "Category not found", http.StatusNotFound)
-			return
-		}
-
-		posts, err = models.ListPostsByCategory(h.db, categoryID)
+		posts, err = models.ListPostsByUserID(h.db, userID)
 	} else {
-		// If no category_id, get all posts
-		posts, err = models.ListPosts(h.db)
+		// Check for category filter
+		categoryIDStr := r.URL.Query().Get("category_id")
+		if categoryIDStr != "" {
+			// If category_id is provided, filter by category
+			categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64)
+			if err != nil {
+				http.Error(w, "Invalid category ID", http.StatusBadRequest)
+				return
+			}
+
+			// Verify category exists
+			var exists bool
+			err = h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM categories WHERE id = ?)", categoryID).Scan(&exists)
+			if err != nil {
+				log.Printf("Error checking category existence: %v", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+			if !exists {
+				http.Error(w, "Category not found", http.StatusNotFound)
+				return
+			}
+
+			posts, err = models.ListPostsByCategory(h.db, categoryID)
+		} else {
+			// If no filters, get all posts
+			posts, err = models.ListPosts(h.db)
+		}
 	}
 
 	if err != nil {
