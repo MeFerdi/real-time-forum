@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Forum</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav id="main-nav">
+        <div class="nav-left">
+            <h1>Real-Time Forum</h1>
+        </div>
+        <div class="nav-right">
+            <button id="loginBtn" class="auth-visible">Login</button>
+            <button id="registerBtn" class="auth-visible">Register</button>
+            <button id="profileBtn" class="auth-hidden">Profile</button>
+            <button id="logoutBtn" class="auth-hidden">Logout</button>
+        </div>
+    </nav>
+
+    <main id="app">
+        <!-- Login Section -->
+        <section id="login-section" class="section">
+            <h2>Login</h2>
+            <form id="login-form">
+                <input type="text" name="login" placeholder="Username or Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </section>
+
+        <!-- Register Section -->
+        <section id="register-section" class="section">
+            <h2>Register</h2>
+            <form id="register-form">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <input type="text" name="first_name" placeholder="First Name" required>
+                <input type="text" name="last_name" placeholder="Last Name" required>
+                <input type="number" name="age" placeholder="Age" required>
+                <select name="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                </select>
+                <button type="submit">Register</button>
+            </form>
+        </section>
+
+        <!-- Feed Section -->
+        <section id="feed-section" class="section">
+            <div class="post-controls">
+                <button id="newPostBtn">New Post</button>
+                <select id="categoryFilter">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div id="posts-container"></div>
+        </section>
+
+        <!-- Post View Section -->
+        <section id="post-section" class="section">
+            <div id="post-detail"></div>
+            <div id="comments-section">
+                <form id="comment-form">
+                    <textarea name="content" placeholder="Write a comment..." required></textarea>
+                    <button type="submit">Add Comment</button>
+                </form>
+                <div id="comments-container"></div>
+            </div>
+        </section>
+
+        <!-- Chat Section -->
+        <section id="chat-section" class="section">
+            <div class="chat-container">
+                <div class="chat-users">
+                    <h3>Online Users</h3>
+                    <ul id="online-users"></ul>
+                </div>
+                <div class="chat-messages">
+                    <div id="messages-container"></div>
+                    <form id="chat-form">
+                        <input type="text" name="message" placeholder="Type a message..." required>
+                        <button type="submit">Send</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Post Modal -->
+        <div id="new-post-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Create New Post</h2>
+                <form id="new-post-form">
+                    <input type="text" name="title" placeholder="Post Title" required>
+                    <textarea name="content" placeholder="Post Content" required></textarea>
+                    <select name="category" required>
+                        <option value="">Select Category</option>
+                    </select>
+                    <button type="submit">Create Post</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
