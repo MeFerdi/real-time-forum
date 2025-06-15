@@ -39,7 +39,28 @@ const API = {
     },
 
     async logout() {
-        return await this.request('/logout', { method: 'POST' });
+        try {
+            const response = await fetch(`${this.baseUrl}/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Try to parse JSON response, fall back to success if response is empty
+            try {
+                const data = await response.json();
+                return { success: data.success };
+            } catch (e) {
+                // If response is empty or invalid JSON, check if request was successful
+                return { success: response.ok };
+            }
+        } catch (error) {
+            console.error('Logout Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     async getProfile() {
