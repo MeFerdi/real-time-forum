@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// User represents a forum user
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
@@ -30,11 +31,17 @@ type RegisterRequest struct {
 	Gender    string `json:"gender"`
 }
 
+type LoginRequest struct {
+	Login    string `json:"login"` // can be email or username
+	Password string `json:"password"`
+}
+
 var (
-	ErrUserExists      = errors.New("username or email already exists")
-	ErrInvalidGender   = errors.New("gender must be 'male', 'female', or 'other'")
-	ErrInvalidAge      = errors.New("age must be between 0 and 150")
-	ErrInvalidPassword = errors.New("password must be at least 6 characters")
+	ErrUserExists         = errors.New("username or email already exists")
+	ErrInvalidGender      = errors.New("gender must be 'male', 'female', or 'other'")
+	ErrInvalidAge         = errors.New("age must be between 0 and 150")
+	ErrInvalidPassword    = errors.New("password must be at least 6 characters")
+	ErrInvalidCredentials = errors.New("invalid login credentials")
 )
 
 // CreateUser creates a new user in the database
@@ -104,4 +111,75 @@ func validateRegisterRequest(req RegisterRequest) error {
 	}
 
 	return nil
+}
+
+// GetUserByLogin retrieves a user by email or username
+func GetUserByLogin(db *sql.DB, login string) (*User, error) {
+	query := `SELECT id, username, email, password_hash, first_name, last_name, age, gender, created_at 
+			  FROM users WHERE email = ? OR username = ?`
+
+	var user User
+	err := db.QueryRow(query, login, login).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FirstName,
+		&user.LastName,
+		&user.Age,
+		&user.Gender,
+		&user.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrInvalidCredentials
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// ValidatePassword checks if the provided password is correct
+func (u *User) ValidatePassword(password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
+	return err == nil
+}
+
+// CreateSession creates a new session for the user
+func CreateSession(db *sql.DB, userID int64, token string) error {
+	expiresAt := time.Now().Add(time.Hour * 24)
+	_, err := db.Exec(`
+		INSERT INTO sessions (user_id, token, expires_at)
+		VALUES (?, ?, ?)`,
+		userID, token, expiresAt)
+	return err
+}
+
+// GetUserBySessionToken retrieves a user by their session token
+func GetUserBySessionToken(db *sql.DB, token string) (*User, error) {
+	query := `
+		SELECT u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name, u.age, u.gender, u.created_at
+		FROM users u
+		JOIN sessions s ON u.id = s.user_id
+		WHERE s.token = ? AND s.expires_at > ?`
+
+	var user User
+	err := db.QueryRow(query, token, time.Now()).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FirstName,
+		&user.LastName,
+		&user.Age,
+		&user.Gender,
+		&user.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("invalid or expired session")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
