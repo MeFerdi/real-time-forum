@@ -265,11 +265,11 @@ class Views {
     async handleLike(postId) {
         const result = await API.likePost(postId);
         if (result.success) {
-            // Update only the like count without reloading the whole post
-            const likeButton = document.querySelector(`button[onclick="views.handleLike(${postId})"]`);
-            if (likeButton) {
-                likeButton.innerHTML = `💗 ${result.data.like_count}`;
-            }
+            // Update all like buttons for this post (both in cards and full view)
+            const likeButtons = document.querySelectorAll(`button[onclick*="views.handleLike(${postId})"]`);
+            likeButtons.forEach(button => {
+                button.innerHTML = `💗 ${result.data.like_count}`;
+            });
         } else {
             alert('Failed to like post: ' + (result.error || 'Unknown error'));
         }
