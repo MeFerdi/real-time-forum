@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Forum</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -11,16 +12,62 @@
         <div class="nav-left">
             <h1>Real-Time Forum</h1>
         </div>
-        <div class="nav-center">
-            <button id="homeBtn" class="auth-hidden">Home</button>
-            <button id="chatBtn" class="auth-hidden">Chat</button>
+        <div class="nav-center desktop-nav auth-hidden">
+            <button id="homeBtn" class="nav-icon-btn" title="Home">
+                <i class="fas fa-home"></i>
+                <span class="btn-text"></span>
+            </button>
+            <button id="chatBtn" class="nav-icon-btn" title="Chat">
+                <i class="fas fa-comments"></i>
+                <span class="btn-text"></span>
+            </button>
         </div>
-        <div class="nav-right">
-            <button id="loginBtn" class="auth-visible">Login</button>
-            <button id="registerBtn" class="auth-visible">Register</button>
+        <div class="nav-right desktop-nav">
+            <button id="loginBtn" class="nav-icon-btn auth-visible" title="Login">
+                <i class="fas fa-sign-in-alt"></i>
+                <span class="btn-text">Login</span>
+            </button>
+            <button id="registerBtn" class="nav-icon-btn auth-visible" title="Register">
+                <i class="fas fa-user-plus"></i>
+                <span class="btn-text">Register</span>
+            </button>
             <span id="userInfo" class="auth-hidden">
-                <button id="profileBtn">Profile</button>
+                <button id="profileBtn" class="nav-icon-btn" title="Profile">
+                    <i class="fas fa-user"></i>
+                    <span class="btn-text"></span>
+                </button>
             </span>
+        </div>
+        <button id="hamburger-menu" class="hamburger-btn">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div id="mobile-menu" class="mobile-menu">
+            <div class="mobile-nav auth-hidden">
+                <button id="homeBtn-mobile" class="nav-icon-btn" title="Home">
+                    <i class="fas fa-home"></i>
+                    <span class="btn-text"></span>
+                </button>
+                <button id="chatBtn-mobile" class="nav-icon-btn" title="Chat">
+                    <i class="fas fa-comments"></i>
+                    <span class="btn-text"></span>
+                </button>
+            </div>
+            <div class="mobile-nav">
+                <button id="loginBtn-mobile" class="nav-icon-btn auth-visible" title="Login">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span class="btn-text">Login</span>
+                </button>
+                <button id="registerBtn-mobile" class="nav-icon-btn auth-visible" title="Register">
+                    <i class="fas fa-user-plus"></i>
+                    <span class="btn-text">Register</span>
+                </button>
+                <span id="userInfo-mobile" class="auth-hidden">
+                    <button id="profileBtn-mobile" class="nav-icon-btn" title="Profile">
+                        <i class="fas fa-user"></i>
+                        <span class="btn-text">Profile</span>
+                    </button>
+                </span>
+            </div>
         </div>
     </nav>
 
