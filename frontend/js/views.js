@@ -62,6 +62,14 @@ class Views {
         document.getElementById('categoryFilter').addEventListener('change', (e) => this.loadPosts(e.target.value));
         document.getElementById('newPostBtn').addEventListener('click', () => this.toggleQuickPostForm());
         document.getElementById('quick-post-form').addEventListener('submit', (e) => this.handleQuickPost(e));
+
+        // Mobile menu events
+        document.getElementById('hamburger-menu').addEventListener('click', () => this.toggleMobileMenu());
+        document.getElementById('homeBtn-mobile').addEventListener('click', () => router.navigate('/'));
+        document.getElementById('chatBtn-mobile').addEventListener('click', () => router.navigate('/chat'));
+        document.getElementById('loginBtn-mobile').addEventListener('click', () => router.navigate('/login'));
+        document.getElementById('registerBtn-mobile').addEventListener('click', () => router.navigate('/register'));
+        document.getElementById('profileBtn-mobile').addEventListener('click', () => this.showProfile());
     }
 
     // Authentication handlers
@@ -518,6 +526,25 @@ class Views {
             }
         } catch (error) {
             console.error('Failed to update user stats:', error);
+        }
+    }
+
+    toggleMobileMenu() {
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenu.classList.toggle('active');
+        
+        // Close menu when clicking outside
+        const closeMenu = (e) => {
+            if (!e.target.closest('#mobile-menu') && !e.target.closest('#hamburger-menu')) {
+                mobileMenu.classList.remove('active');
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        if (mobileMenu.classList.contains('active')) {
+            setTimeout(() => {
+                document.addEventListener('click', closeMenu);
+            }, 0);
         }
     }
 
