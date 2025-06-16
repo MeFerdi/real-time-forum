@@ -79,6 +79,7 @@ class Views {
             this.categoriesLoaded = false; // Reset categories flag
             router.navigate('/');
             await this.loadCategories(); // Load categories first
+            this.updateProfileCard(); // Update profile card with user info
             this.loadPosts(); // Then load posts
         } else {
             alert('Login failed: ' + result.error);
@@ -136,16 +137,45 @@ class Views {
     }
 
     // Post and comment handlers
-    async loadPosts(category = '') {
+    async loadPosts(category = '', filter = '') {
         const result = await API.getPosts(category);
         if (result.success) {
+            let filteredPosts = result.data;
+            let filterMessage = '';
+
+            // Apply additional filters if specified
+            if (filter === 'my-posts') {
+                filteredPosts = result.data.filter(post => 
+                    post.author.username === this.currentUser.username
+                );
+                filterMessage = 'You haven\'t created any posts yet.';
+            } else if (filter === 'liked-posts') {
+                filteredPosts = result.data.filter(post => 
+                    post.like_count > 0
+                );
+                filterMessage = 'You haven\'t liked any posts yet.';
+            }
+
             const container = document.getElementById('posts-container');
-            container.innerHTML = result.data.map(post => this.renderPost(post)).join('');
             
-            // Add click handlers to posts
-            container.querySelectorAll('.post-card').forEach(card => {
-                card.addEventListener('click', () => this.loadPost(card.dataset.postId));
-            });
+            if (filteredPosts.length === 0) {
+                container.innerHTML = `
+                    <div class="no-posts-message">
+                        <p>${filterMessage || 'No posts found.'}</p>
+                        ${filter ? `<button onclick="views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
+                
+                // Add click handlers to posts
+                container.querySelectorAll('.post-card').forEach(card => {
+                    card.addEventListener('click', () => this.loadPost(card.dataset.postId));
+                });
+            }
+
+            // Update the profile card with latest stats
+            this.updateProfileCard();
         }
     }
 
@@ -424,6 +454,39 @@ class Views {
         }
     }
 
+    updateProfileCard() {
+        if (!this.currentUser) return;
+
+        const profileName = document.getElementById('profile-name');
+        const profileImage = document.getElementById('profile-image');
+        const postCount = document.getElementById('post-count');
+        
+        if (profileName) {
+            profileName.textContent = `${this.currentUser.first_name}`;
+        }
+
+        // Update post count
+        this.updateUserStats();
+    }
+
+    async updateUserStats() {
+        try {
+            const result = await API.getPosts();
+            if (result.success) {
+                // Count user's posts
+                const userPosts = result.data.filter(post => 
+                    post.author && post.author.username === this.currentUser.username
+                );
+                const postCount = document.getElementById('post-count');
+                if (postCount) {
+                    postCount.textContent = userPosts.length;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update user stats:', error);
+        }
+    }
+
     // Initialize the views
     async init() {
         try {
@@ -432,6 +495,7 @@ class Views {
                 this.currentUser = profile.data;
                 router.setAuthenticated(true);
                 await this.loadCategories(); // Load categories first
+                this.updateProfileCard(); // Update profile card with user info
                 this.loadPosts(); // Then load posts
             }
         } catch (error) {
