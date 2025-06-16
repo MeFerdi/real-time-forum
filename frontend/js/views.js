@@ -208,7 +208,14 @@ class Views {
                 <p>${post.content.substring(0, 150)}...</p>
                 <div class="post-meta">
                     <span>By ${post.author.username}</span>
-                    <span>💗 ${post.like_count}</span>
+                    <div class="post-actions">
+                        <button onclick="event.stopPropagation(); views.handleLike(${post.id})" class="action-btn">
+                            💗 ${post.like_count || 0}
+                        </button>
+                        <button onclick="event.stopPropagation(); views.loadPost(${post.id})" class="action-btn">
+                            💬 ${post.comments ? post.comments.length : 0}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
