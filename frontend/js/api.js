@@ -68,8 +68,8 @@ const API = {
     },
 
     // Post endpoints
-    async getPosts(category = '') {
-        const endpoint = category ? `/posts?category=${category}` : '/posts';
+    async getPosts(categoryId = '') {
+        const endpoint = categoryId ? `/posts?category_id=${categoryId}` : '/posts';
         return await this.request(endpoint);
     },
 
