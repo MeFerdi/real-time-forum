@@ -5,6 +5,44 @@ class Views {
         this.categoriesLoaded = false;
     }
 
+    formatRelativeTime(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) {
+            return 'just now';
+        }
+        
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) {
+            return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+        }
+        
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+            return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+        }
+        
+        const days = Math.floor(hours / 24);
+        if (days < 7) {
+            return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+        }
+        
+        const weeks = Math.floor(days / 7);
+        if (weeks < 4) {
+            return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+        }
+        
+        const months = Math.floor(days / 30);
+        if (months < 12) {
+            return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+        }
+        
+        const years = Math.floor(days / 365);
+        return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+    }
+
     bindEvents() {
         // Navigation events
         document.getElementById('loginBtn').addEventListener('click', () => router.navigate('/login'));
@@ -239,7 +277,7 @@ class Views {
                         <div class="avatar">👤</div>
                         <div class="post-meta-info">
                             <span class="username">${post.author.username}</span>
-                            <span class="timestamp">${new Date(post.created_at).toLocaleString()}</span>
+                            <span class="timestamp">${this.formatRelativeTime(post.created_at)}</span>
                         </div>
                     </div>
                 </div>
@@ -263,10 +301,18 @@ class Views {
         this.currentPostId = post.id;
         return `
             <div class="post-full">
+                <div class="post-header">
+                    <div class="user-info">
+                        <div class="avatar">👤</div>
+                        <div class="post-meta-info">
+                            <span class="username">${post.author.username}</span>
+                            <span class="timestamp">${this.formatRelativeTime(post.created_at)}</span>
+                        </div>
+                    </div>
+                </div>
                 <h2>${post.title}</h2>
                 <p>${post.content}</p>
                 <div class="post-meta">
-                    <span>By ${post.author.username}</span>
                     <button onclick="views.handleLike(${post.id})">
                         💗 ${post.like_count}
                     </button>
@@ -290,8 +336,13 @@ class Views {
             <div class="comment">
                 <p>${comment.content}</p>
                 <div class="comment-meta">
-                    <span>By ${comment.author.username}</span>
-                    <span>${new Date(comment.created_at).toLocaleString()}</span>
+                    <div class="user-info">
+                        <div class="avatar">👤</div>
+                        <div class="post-meta-info">
+                            <span class="username">${comment.author.username}</span>
+                            <span class="timestamp">${this.formatRelativeTime(comment.created_at)}</span>
+                        </div>
+                    </div>
                     <button onclick="views.handleCommentLike(${comment.id})">
                         💗 ${comment.like_count}
                     </button>
