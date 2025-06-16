@@ -60,7 +60,8 @@ class Views {
 
         // Feed events
         document.getElementById('categoryFilter').addEventListener('change', (e) => this.loadPosts(e.target.value));
-        document.getElementById('newPostBtn').addEventListener('click', () => this.showNewPostModal());
+        document.getElementById('newPostBtn').addEventListener('click', () => this.toggleQuickPostForm());
+        document.getElementById('quick-post-form').addEventListener('submit', (e) => this.handleQuickPost(e));
     }
 
     // Authentication handlers
@@ -263,10 +264,44 @@ class Views {
         };
     }
 
+    toggleQuickPostForm() {
+        const form = document.getElementById('quick-post-form');
+        const btn = document.getElementById('newPostBtn');
+        form.classList.toggle('hidden');
+        
+        if (!form.classList.contains('hidden')) {
+            form.querySelector('textarea').focus();
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = 'block';
+        }
+    }
+
+    async handleQuickPost(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        
+        const postData = {
+            title: formData.get('title'),
+            content: formData.get('content'),
+            category_ids: [parseInt(formData.get('category'))]
+        };
+
+        const result = await API.createPost(postData);
+        if (result.success) {
+            form.reset();
+            this.toggleQuickPostForm();
+            this.loadPosts();
+        } else {
+            alert('Failed to create post: ' + result.error);
+        }
+    }
+
     async loadCategories() {
         // If categories are already loaded and dropdowns exist, don't reload
         const categoryFilter = document.getElementById('categoryFilter');
-        const postCategorySelect = document.querySelector('#new-post-form select[name="category"]');
+        const quickPostCategory = document.querySelector('#quick-post-form select[name="category"]');
         
         if (this.categoriesLoaded && categoryFilter?.children.length > 0) {
             return;
@@ -278,7 +313,7 @@ class Views {
             const sortedCategories = [...result.data].sort((a, b) => a.name.localeCompare(b.name));
             
             // Reset the loaded flag if selects don't exist
-            if (!categoryFilter || !postCategorySelect) {
+            if (!categoryFilter || !quickPostCategory) {
                 this.categoriesLoaded = false;
                 return;
             }
@@ -296,9 +331,8 @@ class Views {
             if (categoryFilter) {
                 populateSelect(categoryFilter, 'All Categories');
             }
-            
-            if (postCategorySelect) {
-                populateSelect(postCategorySelect, 'Select Category');
+            if (quickPostCategory) {
+                populateSelect(quickPostCategory, 'Select Category');
             }
 
             this.categoriesLoaded = true;
