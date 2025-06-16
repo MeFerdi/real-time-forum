@@ -112,6 +112,13 @@ class Views {
         if (result.success) {
             this.currentUser = null;
             router.setAuthenticated(false);
+            
+            // Close any open profile modal first
+            const modal = document.querySelector('.modal.active');
+            if (modal) {
+                document.body.removeChild(modal);
+            }
+            
             router.navigate('/login');
             // Add a success message to the login form
             const loginSection = document.getElementById('login-section');
@@ -394,6 +401,9 @@ class Views {
                             <p><strong>Age:</strong> ${result.data.age}</p>
                             <p><strong>Gender:</strong> ${result.data.gender}</p>
                             <p><strong>Member since:</strong> ${new Date(result.data.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div class="profile-actions">
+                            <button onclick="views.handleLogout()" class="signout-btn">Sign Out</button>
                         </div>
                     </div>
                 `;
