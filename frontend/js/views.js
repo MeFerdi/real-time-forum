@@ -2,7 +2,7 @@ class Views {
     constructor() {
         this.bindEvents();
         this.currentUser = null;
-        this.loadCategories();
+        this.categoriesLoaded = false;
     }
 
     bindEvents() {
@@ -38,8 +38,10 @@ class Views {
         if (result.success) {
             this.currentUser = result.data;
             router.setAuthenticated(true);
+            this.categoriesLoaded = false; // Reset categories flag
             router.navigate('/');
-            this.loadPosts();
+            await this.loadCategories(); // Load categories first
+            this.loadPosts(); // Then load posts
         } else {
             alert('Login failed: ' + result.error);
         }
@@ -187,16 +189,44 @@ class Views {
     }
 
     async loadCategories() {
+        // If categories are already loaded and dropdowns exist, don't reload
+        const categoryFilter = document.getElementById('categoryFilter');
+        const postCategorySelect = document.querySelector('#new-post-form select[name="category"]');
+        
+        if (this.categoriesLoaded && categoryFilter?.children.length > 0) {
+            return;
+        }
+
         const result = await API.getCategories();
         if (result.success) {
-            const categorySelects = document.querySelectorAll('select[name="category"]');
-            const options = result.data.map(category => 
-                `<option value="${category.id}">${category.name}</option>`
-            ).join('');
+            // Create options array from the categories, sort them by name
+            const sortedCategories = [...result.data].sort((a, b) => a.name.localeCompare(b.name));
             
-            categorySelects.forEach(select => {
-                select.innerHTML = '<option value="">Select Category</option>' + options;
-            });
+            // Reset the loaded flag if selects don't exist
+            if (!categoryFilter || !postCategorySelect) {
+                this.categoriesLoaded = false;
+                return;
+            }
+
+            // Function to populate a select element
+            const populateSelect = (select, defaultText) => {
+                select.innerHTML = ''; // Clear existing options
+                select.appendChild(new Option(defaultText, '')); // Add default option
+                sortedCategories.forEach(category => {
+                    select.appendChild(new Option(category.name, category.id));
+                });
+            };
+
+            // Update both dropdowns
+            if (categoryFilter) {
+                populateSelect(categoryFilter, 'All Categories');
+            }
+            
+            if (postCategorySelect) {
+                populateSelect(postCategorySelect, 'Select Category');
+            }
+
+            this.categoriesLoaded = true;
         }
     }
 
@@ -204,10 +234,18 @@ class Views {
     renderPost(post) {
         return `
             <div class="post-card" data-post-id="${post.id}">
+                <div class="post-header">
+                    <div class="user-info">
+                        <div class="avatar">👤</div>
+                        <div class="post-meta-info">
+                            <span class="username">${post.author.username}</span>
+                            <span class="timestamp">${new Date(post.created_at).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
                 <h3>${post.title}</h3>
                 <p>${post.content.substring(0, 150)}...</p>
                 <div class="post-meta">
-                    <span>By ${post.author.username}</span>
                     <div class="post-actions">
                         <button onclick="event.stopPropagation(); views.handleLike(${post.id})" class="action-btn">
                             💗 ${post.like_count || 0}
@@ -332,7 +370,8 @@ class Views {
             if (profile.success) {
                 this.currentUser = profile.data;
                 router.setAuthenticated(true);
-                this.loadPosts();
+                await this.loadCategories(); // Load categories first
+                this.loadPosts(); // Then load posts
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
