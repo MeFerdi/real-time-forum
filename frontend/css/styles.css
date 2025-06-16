@@ -294,10 +294,26 @@ button:hover {
 .comment-meta {
     margin-top: 0.5rem;
     display: flex;
-    gap: 1rem;
+    justify-content: space-between;
     align-items: center;
-    color: #666;
-    font-size: 0.9rem;
+}
+
+.comment-meta .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.comment-meta .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+}
+
+.comment-meta .post-meta-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
 }
 
 .comment-meta button {
