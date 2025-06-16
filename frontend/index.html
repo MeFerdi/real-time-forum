@@ -20,7 +20,6 @@
             <button id="registerBtn" class="auth-visible">Register</button>
             <span id="userInfo" class="auth-hidden">
                 <button id="profileBtn">Profile</button>
-                <button id="logoutBtn">Logout</button>
             </span>
         </div>
     </nav>
@@ -58,13 +57,63 @@
 
         <!-- Feed Section -->
         <section id="feed-section" class="section">
-            <div class="post-controls">
-                <button id="newPostBtn">New Post</button>
-                <select id="categoryFilter">
-                    <option value="">All Categories</option>
-                </select>
+            <div class="feed-layout">
+                <!-- Left Sidebar -->
+                <div class="feed-sidebar">
+                    <div class="profile-card">
+                        <div class="profile-banner"></div>
+                        <div class="profile-photo">
+                            <img src="https://via.placeholder.com/80" alt="Profile photo" id="profile-image">
+                        </div>
+                        <div class="profile-info">
+                            <h3 id="profile-name">Loading...</h3>
+                            <p id="profile-title" class="text-muted">Forum Member</p>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="stat">
+                                <span class="stat-number" id="post-count">0</span>
+                                <span class="stat-label">Posts</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number" id="comment-count">0</span>
+                                <span class="stat-label">Comments</span>
+                            </div>
+                        </div>
+                        <div class="profile-actions">
+                            <button id="logoutBtn" class="logout-btn">Sign Out</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Feed -->
+                <div class="feed-main">
+                    <div class="post-controls">
+                        <button id="newPostBtn">New Post</button>
+                        <select id="categoryFilter">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div id="posts-container"></div>
+                </div>
+
+                <!-- Right Sidebar -->
+                <div class="feed-sidebar">
+                    <div class="news-card">
+                        <div class="card-header">
+                            <h3>Active Categories</h3>
+                        </div>
+                        <div id="active-categories" class="category-list">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                        <div class="card-header mt-4">
+                            <h3>Top Contributors</h3>
+                        </div>
+                        <div id="top-contributors" class="contributors-list">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div id="posts-container"></div>
         </section>
 
         <!-- Post View Section -->
