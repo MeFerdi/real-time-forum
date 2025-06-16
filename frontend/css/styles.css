@@ -709,7 +709,61 @@ body.authenticated .auth-visible {
     border-bottom-color: #f0f0f0;
 }
 
-/* Responsive Design */
+/* Navbar Icons and Mobile Menu Styles */
+.nav-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: transparent;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.nav-icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.nav-icon-btn i {
+    font-size: 1.2rem;
+}
+
+.hamburger-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.mobile-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #2c3e50;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mobile-nav .nav-icon-btn {
+    width: 100%;
+    justify-content: flex-start;
+}
+
 @media (max-width: 768px) {
     .chat-container {
         grid-template-columns: 1fr;
@@ -727,5 +781,21 @@ body.authenticated .auth-visible {
     
     .section {
         padding: 1rem;
+    }
+
+    .desktop-nav {
+        display: none !important;
+    }
+
+    .hamburger-btn {
+        display: block;
+    }
+
+    .mobile-menu.active {
+        display: block;
+    }
+
+    #main-nav {
+        position: relative;
     }
 }
