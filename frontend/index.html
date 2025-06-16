@@ -74,10 +74,11 @@
                                 <span class="stat-number" id="post-count">0</span>
                                 <span class="stat-label">Posts</span>
                             </div>
-                            <div class="stat">
-                                <span class="stat-number" id="comment-count">0</span>
-                                <span class="stat-label">Comments</span>
-                            </div>
+                        </div>
+                        <div class="profile-filters">
+                            <button onclick="views.loadPosts('', 'my-posts')" class="filter-btn">My Posts</button>
+                            <button onclick="views.loadPosts('', 'liked-posts')" class="filter-btn">Liked Posts</button>
+                            <button onclick="views.loadPosts()" class="filter-btn">All Posts</button>
                         </div>
                         <div class="profile-actions">
                             <button id="logoutBtn" class="logout-btn">Sign Out</button>
