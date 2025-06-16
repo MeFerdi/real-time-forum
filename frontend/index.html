@@ -81,15 +81,30 @@
                             <button onclick="views.loadPosts()" class="filter-btn">All Posts</button>
                         </div>
                         <div class="profile-actions">
-                            <button id="logoutBtn" class="logout-btn">Sign Out</button>
+                            <button id="logoutBtn" class="logout-btn"></button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Main Feed -->
                 <div class="feed-main">
-                    <div class="post-controls">
-                        <button id="newPostBtn">New Post</button>
+                    <div class="create-post-card">
+                        <div class="post-form-header">
+                            <img src="https://via.placeholder.com/40" alt="Your profile" class="mini-profile-pic">
+                            <button id="newPostBtn" class="create-post-button">What's on your mind?</button>
+                        </div>
+                        <form id="quick-post-form" class="quick-post-form hidden">
+                            <input type="text" name="title" placeholder="Post title" required class="post-title-input">
+                            <textarea name="content" placeholder="What's on your mind?" required></textarea>
+                            <div class="quick-post-footer">
+                                <select name="category" required>
+                                    <option value="">Select Category</option>
+                                </select>
+                                <button type="submit" class="post-submit-btn">Post</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="feed-filters">
                         <select id="categoryFilter">
                             <option value="">All Categories</option>
                         </select>
