@@ -353,7 +353,9 @@ class Views {
             <div class="post-card" data-post-id="${post.id}">
                 <div class="post-header">
                     <div class="user-info">
-                        <div class="avatar">👤</div>
+                        <div class="avatar">
+                            <img src="https://ui-avatars.com/api/?name=${post.author.username}&background=random" alt="${post.author.username}'s avatar" />
+                        </div>
                         <div class="post-meta-info">
                             <span class="username">${post.author.username}</span>
                             <span class="timestamp">${this.formatRelativeTime(post.created_at)}</span>
@@ -382,7 +384,9 @@ class Views {
             <div class="post-full">
                 <div class="post-header">
                     <div class="user-info">
-                        <div class="avatar">👤</div>
+                        <div class="avatar">
+                            <img src="https://ui-avatars.com/api/?name=${post.author.username}&background=random" alt="${post.author.username}'s avatar" />
+                        </div>
                         <div class="post-meta-info">
                             <span class="username">${post.author.username}</span>
                             <span class="timestamp">${this.formatRelativeTime(post.created_at)}</span>
@@ -416,7 +420,9 @@ class Views {
                 <p>${comment.content}</p>
                 <div class="comment-meta">
                     <div class="user-info">
-                        <div class="avatar">👤</div>
+                        <div class="avatar">
+                            <img src="https://ui-avatars.com/api/?name=${comment.author.username}&background=random" alt="${comment.author.username}'s avatar" />
+                        </div>
                         <div class="post-meta-info">
                             <span class="username">${comment.author.username}</span>
                             <span class="timestamp">${this.formatRelativeTime(comment.created_at)}</span>
@@ -505,6 +511,11 @@ class Views {
         
         if (profileName) {
             profileName.textContent = `${this.currentUser.first_name}`;
+        }
+        
+        if (profileImage) {
+            profileImage.className = 'default-avatar';
+            profileImage.innerHTML = '<i class="fas fa-user"></i>';
         }
 
         // Update post count
