@@ -1,4 +1,4 @@
-module real-time-forum
+module real-time-forum/backend
 
 go 1.24.2
 
