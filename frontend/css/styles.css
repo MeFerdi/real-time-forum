@@ -199,11 +199,32 @@ button:hover {
     width: 40px;
     height: 40px;
     border-radius: 50%;
+    overflow: hidden;
     background-color: #f0f2f5;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.default-avatar {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e0e0e0;
+    color: #666;
+    font-size: 2rem;
+}
+
+.default-avatar i {
+    opacity: 0.8;
 }
 
 .post-meta-info {
@@ -307,7 +328,6 @@ button:hover {
 .comment-meta .avatar {
     width: 32px;
     height: 32px;
-    font-size: 1.2rem;
 }
 
 .comment-meta .post-meta-info {
@@ -506,6 +526,9 @@ body.authenticated .auth-visible {
     overflow: hidden;
     background: white;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .profile-photo img {
@@ -619,7 +642,27 @@ body.authenticated .auth-visible {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    object-fit: cover;
+    overflow: hidden;
+    background-color: #f0f2f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mini-profile-pic.default-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e0e0e0;
+    color: #666;
+    font-size: 1.2rem;
+}
+
+.mini-profile-pic.default-avatar i {
+    opacity: 0.8;
 }
 
 .create-post-button {
