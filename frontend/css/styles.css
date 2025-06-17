@@ -798,4 +798,59 @@ body.authenticated .auth-visible {
     #main-nav {
         position: relative;
     }
+
+    /* New mobile-specific styles */
+    .feed-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .feed-sidebar {
+        position: static;
+        width: 100%;
+        order: -1; /* Move categories to the top */
+    }
+
+    .feed-main {
+        width: 100%;
+        max-width: none;
+    }
+
+    /* Hide non-essential components */
+    .profile-card,
+    .chat-container,
+    #chat-section,
+    .right-sidebar {
+        display: none !important;
+    }
+
+    /* Adjust post creation form for mobile */
+    .create-post-card {
+        margin: 8px 0;
+    }
+
+    .quick-post-footer {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .quick-post-footer select,
+    .post-submit-btn {
+        width: 100%;
+    }
+
+    /* Adjust post cards for mobile */
+    .post-card {
+        padding: 1rem;
+        margin: 8px 0;
+    }
+
+    /* Make the category selector more touch-friendly */
+    .feed-filters select {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        font-size: 16px; /* More touch-friendly size */
+    }
 }
