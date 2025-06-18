@@ -19,7 +19,7 @@ const dbPath = "./internal/database/forum.db"
 func main() {
 	// Ensure database directory exists
 	dbDir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
 		log.Fatalf("Failed to create database directory: %v", err)
 	}
 
@@ -43,6 +43,7 @@ func main() {
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db)
+	wsHandler := handlers.NewWebSocketHandler(db)
 
 	// Create router
 	mux := http.NewServeMux()
@@ -65,6 +66,7 @@ func main() {
 	mux.HandleFunc("/api/posts/", auth.RequireAuth(postHandler.HandlePostRoutes, db))
 	mux.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
 	mux.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
+	mux.HandleFunc("/ws", auth.RequireAuth(wsHandler.HandleWebSocket, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
