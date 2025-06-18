@@ -20,9 +20,20 @@ const Forum = {
             this.ws = new WebSocketClient();
             this.setupWebSocketHandlers();
         }
-        
+        await this.loadUsers();
         await this.loadCategories();
         this.setupEventListeners();
+    },
+    async loadUsers() {
+        try {
+            const result = await this.api.getUsers();
+            if (result.success) {
+                this.users = new Map(result.data.map(user => [user.id, user]));
+                this.renderUsersList();
+            }
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        }
     },
 
     async loadCategories() {
@@ -56,10 +67,10 @@ const Forum = {
                         this.handleChatMessage(message.data);
                         break;
                     case 'status':
-                        this.updateUserStatus(message.data);
+                        this.handleStatusUpdate(message.data);
                         break;
                     case 'users':
-                        this.updateOnlineUsers(message.data);
+                        this.handleUsersList(message.data);
                         break;
                     default:
                         console.warn('Unknown message type:', message.type);
@@ -103,6 +114,45 @@ const Forum = {
         if (postForm) {
             postForm.addEventListener('submit', this.handlePostSubmit.bind(this));
         }
+    },
+    handleUsersList(users) {
+        users.forEach(user => this.users.set(user.id, user));
+        this.renderUsersList();
+    },
+
+    handleStatusUpdate({ user_id, online }) {
+        const user = this.users.get(user_id);
+        if (user) {
+            user.online = online;
+            this.users.set(user_id, user);
+            this.renderUsersList();
+        }
+    },
+
+    renderUsersList() {
+        const usersList = document.getElementById('users-list');
+        if (!usersList || !this.users.size) return;
+
+        usersList.innerHTML = Array.from(this.users.values())
+            .map(this.createUserElement)
+            .join('');
+    },
+
+    createUserElement(user) {
+        return `
+            <div class="user-item ${user.online ? 'online' : 'offline'}" 
+                 data-user-id="${user.id}">
+                <div class="user-avatar">
+                    <img src="https://ui-avatars.com/api/?name=${user.username}" 
+                         alt="${user.username}">
+                    <span class="status-indicator"></span>
+                </div>
+                <div class="user-info">
+                    <span class="user-name">${user.username}</span>
+                    <span class="status">${user.online ? 'Online' : 'Offline'}</span>
+                </div>
+            </div>
+        `;
     },
 
     handleChatSubmit(e) {
