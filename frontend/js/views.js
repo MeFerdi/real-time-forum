@@ -174,46 +174,75 @@ class Views {
         this.setupChatHandlers();
     }
 
-    // Post and comment handlers
     async loadPosts(category = '', filter = '') {
-        const result = await API.getPosts(category);
-        if (result.success) {
-            let filteredPosts = result.data;
-            let filterMessage = '';
-
-            // Apply additional filters if specified
-            if (filter === 'my-posts') {
-                filteredPosts = result.data.filter(post => 
-                    post.author.username === this.currentUser.username
-                );
-                filterMessage = 'You haven\'t created any posts yet.';
-            } else if (filter === 'liked-posts') {
-                filteredPosts = result.data.filter(post => 
-                    post.like_count > 0
-                );
-                filterMessage = 'You haven\'t liked any posts yet.';
-            }
-
+        try {
             const container = document.getElementById('posts-container');
-            
-            if (filteredPosts.length === 0) {
+            if (!container) return;
+    
+            // Show loading state
+            container.innerHTML = '<div class="loading">Loading posts...</div>';
+    
+            const result = await this.api.getPosts(category);
+            if (!result || !result.success) {
+                container.innerHTML = `
+                    <div class="no-posts-message">
+                        <p>Failed to load posts</p>
+                    </div>
+                `;
+                return;
+            }
+    
+            let filteredPosts = result.data || [];
+            let filterMessage = '';
+    
+            // Validate current user before filtering
+            if (this.currentUser) {
+                // Apply filters if data exists
+                if (filter === 'my-posts') {
+                    filteredPosts = filteredPosts.filter(post => 
+                        post.author.username === this.currentUser.username
+                    );
+                    filterMessage = 'You haven\'t created any posts yet.';
+                } else if (filter === 'liked-posts') {
+                    filteredPosts = filteredPosts.filter(post => 
+                        post.like_count > 0
+                    );
+                    filterMessage = 'You haven\'t liked any posts yet.';
+                }
+            }
+    
+            // Update UI based on results
+            if (!filteredPosts.length) {
                 container.innerHTML = `
                     <div class="no-posts-message">
                         <p>${filterMessage || 'No posts found.'}</p>
                         ${filter ? `<button onclick="views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
                     </div>
                 `;
-            } else {
-                container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
-                
-                // Add click handlers to posts
-                container.querySelectorAll('.post-card').forEach(card => {
-                    card.addEventListener('click', () => this.loadPost(card.dataset.postId));
-                });
+                return;
             }
-
-            // Update the profile card with latest stats
-            this.updateProfileCard();
+    
+            // Render posts and add event listeners
+            container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
+            container.querySelectorAll('.post-card').forEach(card => {
+                card.addEventListener('click', () => this.loadPost(card.dataset.postId));
+            });
+    
+            // Update profile if needed
+            if (this.currentUser) {
+                this.updateProfileCard();
+            }
+    
+        } catch (error) {
+            console.error('Error loading posts:', error);
+            const container = document.getElementById('posts-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="no-posts-message error">
+                        <p>Error loading posts. Please try again.</p>
+                    </div>
+                `;
+            }
         }
     }
 
@@ -377,31 +406,44 @@ class Views {
     }
     async loadUsers() {
         try {
+            console.log('Starting user load...');
+            
             // Get all registered users
             const allUsers = await this.api.getUsers();
+            console.log('All users response:', allUsers);
+            
             if (allUsers.success) {
                 // Store all users in map
                 allUsers.data.forEach(user => {
                     this.users.set(user.id, { ...user, online: false });
                 });
-    
+                console.log(`Stored ${this.users.size} users in map`);
+        
                 // Get online users
                 const onlineUsers = await this.api.getOnlineUsers();
+                console.log('Online users response:', onlineUsers);
+                
                 if (onlineUsers.success) {
                     // Update online status
+                    let onlineCount = 0;
                     onlineUsers.data.forEach(user => {
                         if (this.users.has(user.id)) {
                             const userData = this.users.get(user.id);
                             this.users.set(user.id, { ...userData, online: true });
+                            onlineCount++;
                         }
                     });
+                    console.log(`Updated ${onlineCount} users to online status`);
                 }
-    
+        
                 // Render complete list
-                this.renderUserList(Array.from(this.users.values()));
+                const usersList = Array.from(this.users.values());
+                console.log(`Rendering ${usersList.length} users`);
+                this.renderUserList(usersList);
             }
         } catch (error) {
             console.error('Failed to load users:', error);
+            console.error('Error stack:', error.stack);
         }
     }
 
@@ -696,21 +738,19 @@ class Views {
         this.updateUserStats();
     }
 
-    async updateUserStats() {
+    async updateUserStats(userData) {
         try {
-            const result = await API.getPosts();
-            if (result.success) {
-                // Count user's posts
-                const userPosts = result.data.filter(post => 
-                    post.author && post.author.username === this.currentUser.username
-                );
-                const postCount = document.getElementById('post-count');
-                if (postCount) {
-                    postCount.textContent = userPosts.length;
-                }
+            if (!userData) {
+                console.warn('No user data available for stats update');
+                return;
+            }
+    
+            const postCount = document.getElementById('post-count');
+            if (postCount) {
+                postCount.textContent = userData.post_count || '0';
             }
         } catch (error) {
-            console.error('Failed to update user stats:', error);
+            console.error('Error updating user stats:', error);
         }
     }
 
