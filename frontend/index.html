@@ -186,16 +186,24 @@
             <div id="post-detail"></div>
         </section>
 
-        <!-- Replace existing chat section with: -->
+        <!-- Chat Section -->
 <section id="chat-section" class="section">
     <div class="chat-layout">
         <!-- Users List -->
         <div class="users-sidebar">
             <div class="users-header">
-                <h3>Chats</h3>
+                <h3>Users</h3>
+                <div class="search-container">
+                    <input type="text" id="user-search" placeholder="Search users...">
+                    <i class="fas fa-search"></i>
+                </div>
             </div>
             <div id="users-list" class="users-container">
-                <!-- Users will be populated here -->
+                <!-- Empty state message -->
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <p>No users found</p>
+                </div>
             </div>
         </div>
 
@@ -205,14 +213,21 @@
                 <div class="chat-user-info">
                     <div class="user-avatar">
                         <img id="chat-user-avatar" src="" alt="">
-                        <span id="status-indicator"></span>
+                        <span class="status-indicator"></span>
                     </div>
-                    <span id="chat-user-name"></span>
+                    <div class="user-details">
+                        <span id="chat-user-name"></span>
+                        <span id="chat-user-status" class="status-text"></span>
+                    </div>
                 </div>
             </div>
             
             <div id="chat-messages" class="messages-container">
-                <!-- Messages will be populated here -->
+                <!-- Empty state message -->
+                <div class="empty-state">
+                    <i class="fas fa-comments"></i>
+                    <p>Select a user to start chatting</p>
+                </div>
             </div>
 
             <form id="chat-form" class="chat-input-form">
@@ -230,7 +245,6 @@
         </div>
     </div>
 </section>
-
         <!-- New Post Modal -->
         <div id="new-post-modal" class="modal">
             <div class="modal-content">
