@@ -8,17 +8,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// User represents a forum user
 type User struct {
-	ID           int64     `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Never send in JSON responses
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	Age          int       `json:"age"`
-	Gender       string    `json:"gender"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID         int64     `json:"id"`
+	Username   string    `json:"username"`
+	Email      string    `json:"email,omitempty"`
+	FirstName  string    `json:"first_name"`
+	LastName   string    `json:"last_name"`
+	Age        int       `json:"age,omitempty"`
+	Gender     string    `json:"gender,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastActive time.Time `json:"last_active"`
+	Online     bool      `json:"online"`
+	// Private fields
+	PasswordHash string `json:"-"`
 }
 
 type RegisterRequest struct {
@@ -43,6 +45,10 @@ var (
 	ErrInvalidPassword    = errors.New("password must be at least 6 characters")
 	ErrInvalidCredentials = errors.New("invalid login credentials")
 )
+
+type UserHandler struct {
+	db *sql.DB
+}
 
 // CreateUser creates a new user in the database
 func CreateUser(db *sql.DB, req RegisterRequest) (*User, error) {
@@ -183,8 +189,6 @@ func GetUserBySessionToken(db *sql.DB, token string) (*User, error) {
 	}
 	return &user, nil
 }
-
-// GetUserByID retrieves a user by their ID
 func GetUserByID(db *sql.DB, id int64) (*User, error) {
 	query := `SELECT id, username, email, password_hash, first_name, last_name, age, gender, created_at 
 			  FROM users WHERE id = ?`
@@ -211,10 +215,13 @@ func GetUserByID(db *sql.DB, id int64) (*User, error) {
 }
 
 func GetAllUsers(db *sql.DB) ([]User, error) {
-	rows, err := db.Query(`
-        SELECT id, username, email, created_at 
+	query := `
+        SELECT id, username, email, first_name, last_name, 
+               created_at, last_active, online 
         FROM users 
-        ORDER BY username ASC`)
+        ORDER BY username ASC`
+
+	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -222,17 +229,54 @@ func GetAllUsers(db *sql.DB) ([]User, error) {
 
 	var users []User
 	for rows.Next() {
-		var user User
+		var u User
 		err := rows.Scan(
-			&user.ID,
-			&user.Username,
-			&user.Email,
-			&user.CreatedAt,
+			&u.ID, &u.Username, &u.Email, &u.FirstName,
+			&u.LastName, &u.CreatedAt, &u.LastActive, &u.Online,
 		)
 		if err != nil {
 			return nil, err
 		}
-		users = append(users, user)
+		users = append(users, u)
 	}
 	return users, nil
+}
+
+func GetOnlineUsers(db *sql.DB) ([]User, error) {
+	query := `
+        SELECT id, username, first_name, last_name, 
+               created_at, last_active
+        FROM users 
+        WHERE online = 1`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		u.Online = true
+		err := rows.Scan(
+			&u.ID, &u.Username, &u.FirstName,
+			&u.LastName, &u.CreatedAt, &u.LastActive,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func UpdateUserStatus(db *sql.DB, userID int64, online bool) error {
+	query := `
+        UPDATE users 
+        SET online = ?, last_active = datetime('now') 
+        WHERE id = ?`
+
+	_, err := db.Exec(query, online, userID)
+	return err
 }
