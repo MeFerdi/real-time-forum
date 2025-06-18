@@ -406,45 +406,61 @@ class Views {
     }
     async loadUsers() {
         try {
-            console.log('Starting user load...');
-            
-            // Get all registered users
-            const allUsers = await this.api.getUsers();
-            console.log('All users response:', allUsers);
-            
-            if (allUsers.success) {
-                // Store all users in map
-                allUsers.data.forEach(user => {
-                    this.users.set(user.id, { ...user, online: false });
-                });
-                console.log(`Stored ${this.users.size} users in map`);
-        
-                // Get online users
-                const onlineUsers = await this.api.getOnlineUsers();
-                console.log('Online users response:', onlineUsers);
-                
-                if (onlineUsers.success) {
-                    // Update online status
-                    let onlineCount = 0;
-                    onlineUsers.data.forEach(user => {
-                        if (this.users.has(user.id)) {
-                            const userData = this.users.get(user.id);
-                            this.users.set(user.id, { ...userData, online: true });
-                            onlineCount++;
-                        }
-                    });
-                    console.log(`Updated ${onlineCount} users to online status`);
-                }
-        
-                // Render complete list
-                const usersList = Array.from(this.users.values());
-                console.log(`Rendering ${usersList.length} users`);
-                this.renderUserList(usersList);
+            const result = await this.api.getUsers();
+            if (!result.success) {
+                throw new Error('Failed to fetch users');
             }
+    
+            // Store users in map
+            result.data.forEach(user => {
+                this.users.set(user.id, {
+                    ...user,
+                    online: Boolean(user.online)
+                });
+            });
+    
+            // Get users list container
+            const usersList = document.getElementById('users-list');
+            if (!usersList) return;
+    
+            // Render users
+            const users = Array.from(this.users.values());
+            if (users.length === 0) {
+                usersList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <p>No users found</p>
+                    </div>`;
+                return;
+            }
+    
+            usersList.innerHTML = users.map(user => `
+                <div class="user-item ${user.online ? 'online' : ''}" data-user-id="${user.id}">
+                    <div class="user-avatar">
+                        <img src="https://ui-avatars.com/api/?name=${user.username}" alt="${user.username}">
+                        <span class="status-indicator"></span>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">${user.username}</span>
+                        <span class="last-active">Last seen: ${this.formatDate(user.last_active)}</span>
+                    </div>
+                </div>
+            `).join('');
+    
+            // Add click handlers
+            usersList.querySelectorAll('.user-item').forEach(item => {
+                item.addEventListener('click', () => this.initChat(item.dataset.userId));
+            });
+    
         } catch (error) {
             console.error('Failed to load users:', error);
-            console.error('Error stack:', error.stack);
         }
+    }
+    
+    formatDate(dateString) {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleString();
     }
 
     renderUserList(users) {
