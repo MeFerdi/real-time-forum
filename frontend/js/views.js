@@ -1,8 +1,15 @@
+import API from './api.js'
+import router from './router.js'
 class Views {
     constructor() {
-        this.bindEvents();
+        this.api = API;
+        this.router = router;
         this.currentUser = null;
         this.categoriesLoaded = false;
+        this.chatHistory = new Map();
+        this.activeChat = null;
+        this.messageCallbacks = [];
+        this.bindEvents();
     }
 
     formatRelativeTime(dateString) {
@@ -42,6 +49,9 @@ class Views {
         const years = Math.floor(days / 365);
         return `${years} ${years === 1 ? 'year' : 'years'} ago`;
     }
+    getCurrentUser() {
+        return this.currentUser;
+    }
 
     bindEvents() {
         // Navigation events
@@ -70,6 +80,18 @@ class Views {
         document.getElementById('loginBtn-mobile').addEventListener('click', () => router.navigate('/login'));
         document.getElementById('registerBtn-mobile').addEventListener('click', () => router.navigate('/register'));
         document.getElementById('profileBtn-mobile').addEventListener('click', () => this.showProfile());
+    }
+
+    handleChatMessage(e) {
+        e.preventDefault();
+        const form = e.target;
+        const content = form.message.value.trim();
+        const receiverId = form.getAttribute('data-receiver-id');
+        
+        if (content && receiverId) {
+            this.api.sendMessage(parseInt(receiverId), content);
+            form.reset();
+        }
     }
 
     // Authentication handlers
@@ -143,6 +165,13 @@ class Views {
         } else {
             alert('Logout failed: ' + (result.error || 'Unknown error'));
         }
+    }
+    async initializeChat() {
+        const users = await API.getUsersWithChats();
+        if (users.success) {
+            this.renderUserList(users.data);
+        }
+        this.setupChatHandlers();
     }
 
     // Post and comment handlers
@@ -344,6 +373,151 @@ class Views {
             }
 
             this.categoriesLoaded = true;
+        }
+    }
+    async loadUsers() {
+        try {
+            // Get all registered users
+            const allUsers = await this.api.getUsers();
+            if (allUsers.success) {
+                // Store all users in map
+                allUsers.data.forEach(user => {
+                    this.users.set(user.id, { ...user, online: false });
+                });
+    
+                // Get online users
+                const onlineUsers = await this.api.getOnlineUsers();
+                if (onlineUsers.success) {
+                    // Update online status
+                    onlineUsers.data.forEach(user => {
+                        if (this.users.has(user.id)) {
+                            const userData = this.users.get(user.id);
+                            this.users.set(user.id, { ...userData, online: true });
+                        }
+                    });
+                }
+    
+                // Render complete list
+                this.renderUserList(Array.from(this.users.values()));
+            }
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        }
+    }
+
+    renderUserList(users) {
+        const usersList = document.getElementById('users-list');
+        if (!usersList) return;
+
+        usersList.innerHTML = users.map(user => `
+            <div class="user-item ${user.online ? 'online' : ''}" data-user-id="${user.id}">
+                <div class="user-avatar">
+                    <img src="https://ui-avatars.com/api/?name=${user.username}" alt="${user.username}">
+                </div>
+                <div class="user-info">
+                    <span class="user-name">${user.username}</span>
+                    <span class="last-message">${user.last_message || ''}</span>
+                </div>
+                <span class="status-indicator"></span>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        usersList.querySelectorAll('.user-item').forEach(item => {
+            item.addEventListener('click', () => this.loadChat(item.dataset.userId));
+        });
+    }
+    updateUserStatus(userId, online) {
+        if (online) {
+            this.onlineUsers.add(userId);
+        } else {
+            this.onlineUsers.delete(userId);
+        }
+        this.renderUserList();
+    }
+
+    async loadChat(userId) {
+        this.activeChat = userId;
+        const chatContainer = document.getElementById('chat-messages');
+        const messages = await API.getChatHistory(userId);
+        
+        if (messages.success) {
+            this.renderChatMessages(messages.data);
+            this.scrollToBottom();
+        }
+
+        // Update UI to show active chat
+        document.querySelectorAll('.user-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.userId === userId);
+        });
+    }
+
+    renderChatMessages(messages) {
+        const chatContainer = document.getElementById('chat-messages');
+        if (!chatContainer) return;
+
+        chatContainer.innerHTML = messages.map(msg => `
+            <div class="message ${msg.sender_id === this.currentUser.id ? 'sent' : 'received'}">
+                <div class="message-content">${msg.content}</div>
+                <div class="message-meta">
+                    <span class="message-time">${this.formatRelativeTime(msg.created_at)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    setupChatHandlers() {
+        const chatForm = document.getElementById('chat-form');
+        if (chatForm) {
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = chatForm.querySelector('input[name="message"]');
+                const message = input.value.trim();
+                
+                if (message && this.activeChat) {
+                    API.sendMessage(this.activeChat, message);
+                    input.value = '';
+                }
+            });
+        }
+
+        // Add message listener
+        API.onMessage(message => {
+            if (message.type === 'chat') {
+                this.handleIncomingMessage(message.data);
+            }
+        });
+    }
+
+    handleIncomingMessage(message) {
+        if (message.sender_id === this.activeChat || 
+            message.sender_id === this.currentUser.id) {
+            this.appendMessage(message);
+        }
+        this.updateUserList();
+    }
+
+    appendMessage(message) {
+        const chatContainer = document.getElementById('chat-messages');
+        if (!chatContainer) return;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${message.sender_id === this.currentUser.id ? 'sent' : 'received'}`;
+        messageEl.innerHTML = `
+            <div class="message-content">${message.content}</div>
+            <div class="message-meta">
+                <span class="message-time">${this.formatRelativeTime(message.created_at)}</span>
+            </div>
+        `;
+
+        chatContainer.appendChild(messageEl);
+        this.scrollToBottom();
+    }
+
+    scrollToBottom() {
+        const chatContainer = document.getElementById('chat-messages');
+        if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
     }
 
@@ -566,9 +740,13 @@ class Views {
             if (profile.success) {
                 this.currentUser = profile.data;
                 router.setAuthenticated(true);
+                await this.loadUsers();
                 await this.loadCategories(); // Load categories first
                 this.updateProfileCard(); // Update profile card with user info
                 this.loadPosts(); // Then load posts
+                if (window.location.pathname === '/chat') {
+                    this.initializeChat();
+                }
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
@@ -576,5 +754,5 @@ class Views {
         }
     }
 }
-
 const views = new Views();
+export default views;
