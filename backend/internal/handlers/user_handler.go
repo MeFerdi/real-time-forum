@@ -126,3 +126,85 @@ func (h *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received GET request for users from %s", r.RemoteAddr)
+
+	if r.Method != http.MethodGet {
+		log.Printf("Invalid method %s for users request", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	users, err := models.GetAllUsers(h.db)
+	if err != nil {
+		log.Printf("Failed to fetch users from database: %v", err)
+		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Successfully fetched %d users from database", len(users))
+
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"success": true,
+		"data":    users,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Successfully sent users response with %d users", len(users))
+}
+
+func (h *UserHandler) GetOnlineUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	users, err := models.GetOnlineUsers(h.db)
+	if err != nil {
+		http.Error(w, "Failed to fetch online users", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    users,
+	})
+}
+
+func (h *UserHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, ok := auth.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var status struct {
+		Online bool `json:"online"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := models.UpdateUserStatus(h.db, userID, status.Online); err != nil {
+		http.Error(w, "Failed to update status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
