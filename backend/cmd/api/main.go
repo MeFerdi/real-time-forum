@@ -60,6 +60,9 @@ func main() {
 
 	// Register protected routes
 	mux.HandleFunc("/api/profile", auth.RequireAuth(userHandler.Profile, db))
+	mux.HandleFunc("/api/users", auth.RequireAuth(userHandler.GetUsers, db))
+    mux.HandleFunc("/api/users/online", auth.RequireAuth(userHandler.GetOnlineUsers, db))
+    mux.HandleFunc("/api/users/status", auth.RequireAuth(userHandler.UpdateStatus, db))
 	mux.HandleFunc("/api/posts/create", auth.RequireAuth(postHandler.CreatePost, db))
 	mux.HandleFunc("/api/posts/get", auth.RequireAuth(postHandler.GetPost, db))
 	mux.HandleFunc("/api/posts", auth.RequireAuth(postHandler.ListPosts, db))
