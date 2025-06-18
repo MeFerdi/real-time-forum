@@ -110,7 +110,7 @@ const API = {
     },
 
     async getUsers() {
-        console.log('Fetching users from:', '/api/users');
+        console.log('Fetching users from:', 'api/api/users');
         return await this.request('/api/users');
     },
 
@@ -119,11 +119,11 @@ const API = {
     },
 
     async getUserById(userId) {
-        return await this.request(`/users/${userId}`);
+        return await this.request(`api/users/${userId}`);
     },
 
     async updateUserStatus(status) {
-        return await this.request('/users/status', {
+        return await this.request('api/users/status', {
             method: 'POST',
             body: JSON.stringify({ status })
         });
