@@ -20,14 +20,26 @@ type Client struct {
 	Conn   *websocket.Conn
 	Send   chan []byte
 }
+type UserStatus struct {
+	User   models.User `json:"user"`
+	Online bool        `json:"online"`
+}
 
 // WebSocketHandler manages WebSocket connections and messages
 type WebSocketHandler struct {
-	db       *sql.DB
-	upgrader websocket.Upgrader
-	clients  map[int64]*Client // map userID to client
-	mu       sync.RWMutex
+	db         *sql.DB
+	upgrader   websocket.Upgrader
+	clients    map[int64]*Client // map userID to client
+	userStatus map[int64]bool
+	mu         sync.RWMutex
 }
+
+const (
+	MessageTypeChat    = "chat"
+	MessageTypeStatus  = "status"
+	MessageTypeUsers   = "users"
+	MessageTypeHistory = "history"
+)
 
 // WebSocketMessage represents a message sent over WebSocket
 type WebSocketMessage struct {
@@ -45,15 +57,16 @@ type ChatMessage struct {
 
 func NewWebSocketHandler(db *sql.DB) *WebSocketHandler {
 	return &WebSocketHandler{
-		db: db,
+		db:         db,
+		userStatus: make(map[int64]bool),
+		clients:    make(map[int64]*Client),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				return true // Allow all origins in development
+				return true
 			},
 		},
-		clients: make(map[int64]*Client),
 	}
 }
 
@@ -106,6 +119,65 @@ func (h *WebSocketHandler) unregisterClient(client *Client) {
 
 	// Notify other users that this user is offline
 	h.broadcastUserStatus(client.UserID, false)
+}
+
+func (h *WebSocketHandler) sendUserList(client *Client) {
+	users, err := models.GetAllUsers(h.db)
+	if err != nil {
+		log.Printf("Error getting users: %v", err)
+		return
+	}
+
+	// Get recent chats for ordering
+	recentChats, err := models.GetRecentChats(h.db, client.UserID)
+	if err != nil {
+		log.Printf("Error getting recent chats: %v", err)
+		recentChats = []models.User{} // Empty if error
+	}
+
+	// Create map of recent users
+	recentMap := make(map[int64]bool)
+	userList := make([]UserStatus, 0)
+
+	// Add recent users first
+	for _, user := range recentChats {
+		if user.ID != client.UserID {
+			recentMap[user.ID] = true
+			userList = append(userList, UserStatus{
+				User:   user,
+				Online: h.userStatus[user.ID],
+			})
+		}
+	}
+
+	// Add remaining users alphabetically
+	for _, user := range users {
+		if user.ID != client.UserID && !recentMap[user.ID] {
+			userList = append(userList, UserStatus{
+				User:   user,
+				Online: h.userStatus[user.ID],
+			})
+		}
+	}
+
+	data, err := json.Marshal(userList)
+	if err != nil {
+		log.Printf("Error marshaling user list: %v", err)
+		return
+	}
+
+	wsMsg := WebSocketMessage{
+		Type: "users",
+		Data: data,
+	}
+
+	response, err := json.Marshal(wsMsg)
+	if err != nil {
+		log.Printf("Error marshaling response: %v", err)
+		return
+	}
+
+	client.Send <- response
 }
 
 func (h *WebSocketHandler) readPump(client *Client) {
