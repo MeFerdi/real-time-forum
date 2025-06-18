@@ -4,22 +4,22 @@ import (
 	"database/sql"
 )
 
-// InitializeSchema creates all the necessary database tables if they don't exist
 func InitializeSchema(db *sql.DB) error {
-	// Create users table
 	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT NOT NULL UNIQUE,
-			email TEXT NOT NULL UNIQUE,
-			password_hash TEXT NOT NULL,
-			first_name TEXT NOT NULL,
-			last_name TEXT NOT NULL,
-			age INTEGER NOT NULL,
-			gender TEXT NOT NULL CHECK(gender IN ('male', 'female', 'other')),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);
-	`)
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		email TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		first_name TEXT NOT NULL,
+		last_name TEXT NOT NULL,
+		age INTEGER NOT NULL,
+		gender TEXT NOT NULL CHECK(gender IN ('male', 'female', 'other')),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		online BOOLEAN DEFAULT FALSE
+	);
+`)
 	if err != nil {
 		return err
 	}
