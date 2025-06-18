@@ -108,14 +108,25 @@ const API = {
     async getProfile() {
         return await this.request('/profile');
     },
-    async getAllUsers() {
-        return await this.request('/users');
+
+    async getUsers() {
+        return await this.request('/api/users');
     },
 
     async getOnlineUsers() {
-        return await this.request('/users/online');
+        return await this.request('/api/users/online');
     },
 
+    async getUserById(userId) {
+        return await this.request(`/api/users/${userId}`);
+    },
+
+    async updateUserStatus(status) {
+        return await this.request('/api/users/status', {
+            method: 'POST',
+            body: JSON.stringify({ status })
+        });
+    },
     // Chat Endpoints
     async getChatHistory(userId, offset = 0) {
         return await this.request(`/messages?user_id=${userId}&offset=${offset}`);
