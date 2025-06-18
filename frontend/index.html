@@ -170,13 +170,11 @@
                             <h3>Active Categories</h3>
                         </div>
                         <div id="active-categories" class="category-list">
-                            <!-- Will be populated by JavaScript -->
                         </div>
                         <div class="card-header mt-4">
                             <h3>Top Contributors</h3>
                         </div>
                         <div id="top-contributors" class="contributors-list">
-                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -188,22 +186,50 @@
             <div id="post-detail"></div>
         </section>
 
-        <!-- Chat Section -->
-        <section id="chat-section" class="section">
-            <div class="chat-container">
-                <div class="chat-users">
-                    <h3>Online Users</h3>
-                    <ul id="online-users"></ul>
-                </div>
-                <div class="chat-messages">
-                    <div id="messages-container"></div>
-                    <form id="chat-form">
-                        <input type="text" name="message" placeholder="Type a message..." required>
-                        <button type="submit">Send</button>
-                    </form>
+        <!-- Replace existing chat section with: -->
+<section id="chat-section" class="section">
+    <div class="chat-layout">
+        <!-- Users List -->
+        <div class="users-sidebar">
+            <div class="users-header">
+                <h3>Chats</h3>
+            </div>
+            <div id="users-list" class="users-container">
+                <!-- Users will be populated here -->
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-main">
+            <div id="chat-header" class="chat-header">
+                <div class="chat-user-info">
+                    <div class="user-avatar">
+                        <img id="chat-user-avatar" src="" alt="">
+                        <span id="status-indicator"></span>
+                    </div>
+                    <span id="chat-user-name"></span>
                 </div>
             </div>
-        </section>
+            
+            <div id="chat-messages" class="messages-container">
+                <!-- Messages will be populated here -->
+            </div>
+
+            <form id="chat-form" class="chat-input-form">
+                <div class="input-container">
+                    <input type="text" 
+                           name="message" 
+                           placeholder="Type a message..." 
+                           autocomplete="off"
+                           required>
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
 
         <!-- New Post Modal -->
         <div id="new-post-modal" class="modal">
@@ -221,10 +247,6 @@
             </div>
         </div>
     </main>
-
-    <script src="js/api.js"></script>
-    <script src="js/views.js"></script>
-    <script src="js/router.js"></script>
-    <script src="js/app.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
