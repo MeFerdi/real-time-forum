@@ -1,0 +1,349 @@
+/* Global Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #1A2521;
+    color: #EDEDED;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* Navigation */
+header {
+    background-color: #2E8B57;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.logo {
+    font-family: 'Ubuntu', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #FFD700;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+.logo:hover {
+    transform: scale(1.05);
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile {
+    font-weight: 600;
+    color: #EDEDED;
+}
+
+.logout-btn, .signup-btn {
+    background-color: #FF5733;
+    color: #EDEDED;
+    border: none;
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.logout-btn img {
+    height: 20px;
+    vertical-align: middle;
+}
+
+.logout-btn:hover, .signup-btn:hover {
+    background-color: #E04A2C;
+    transform: translateY(-2px);
+}
+
+/* Main Content */
+.content-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.mid-section {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.right-panel {
+    width: 20%;
+    min-width: 200px;
+}
+
+/* Top Panel */
+.top-panel {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.top-panel-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.filter-categories select {
+    background-color: #F9F6EE;
+    color: #1A2521;
+    border: 2px solid #3C4A45;
+    border-radius: 12px;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.filter-categories select:focus {
+    border-color: #FF5733;
+}
+
+.new-post-btn {
+    background-color: #FFD700;
+    border: 2px solid #3C4A45;
+    border-radius: 12px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.new-post-btn img {
+    height: 20px;
+}
+
+.new-post-btn:hover {
+    background-color: #E6C200;
+    transform: translateY(-2px);
+}
+
+.new-post-notif-wrapper {
+    display: none;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.new-post-popup {
+    background-color: #FF5733;
+    color: #EDEDED;
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.new-post-popup:hover {
+    background-color: #E04A2C;
+}
+
+/* Posts */
+.posts-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+}
+
+.post {
+    width: 300px;
+    background-color: #F9F6EE;
+    color: #1A2521;
+    border: 2px solid #3C4A45;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.post:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.title {
+    font-family: 'Ubuntu', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.author {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #707070;
+}
+
+.author img {
+    height: 24px;
+}
+
+.post-username {
+    font-weight: 600;
+    color: #1A2521;
+}
+
+.post-body {
+    font-size: 0.9rem;
+    max-height: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comments-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.likes-dislikes-wrapper {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.likes-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background-color: #EDEDED;
+    border-radius: 12px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.likes-wrapper img {
+    height: 16px;
+}
+
+.comments {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background-color: #EDEDED;
+    border-radius: 12px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.comments img {
+    height: 16px;
+}
+
+/* Users */
+.users {
+    margin-top: 2rem;
+}
+
+.online-list {
+    font-family: 'Ubuntu', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #FFD700;
+    margin-bottom: 0.5rem;
+}
+
+#offline-list {
+    margin-top: 1rem;
+}
+
+.user {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0.8rem 0;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.user:hover {
+    background-color: rgba(255, 87, 51, 0.1);
+    border-radius: 8px;
+    padding: 0.3rem;
+}
+
+.user img {
+    height: 24px;
+}
+
+.online {
+    background-color: #84CD1C;
+    border: 2px solid #3C4A45;
+    border-radius: 50%;
+    padding: 0.3rem;
+    margin-left: -1.5rem;
+    opacity: 0;
+}
+
+.msg-notification {
+    background-color: #FF5733;
+    color: #EDEDED;
+    border-radius: 50%;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    opacity: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .content-wrapper {
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .mid-section, .right-panel {
+        width: 100%;
+    }
+
+    .post-container {
+        width: 100%;
+        min-width: unset;
+        margin-left: 0;
+    }
+
+    nav {
+        padding: 1rem;
+    }
+}
