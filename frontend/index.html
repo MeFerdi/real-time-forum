@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;700&family=Poppins:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./frontend/styles/styles.css" />
+    <link rel="stylesheet" href="./frontend/styles/createpost.css" />
+    <link rel="stylesheet" href="./frontend/styles/signin.css" />
+    <link rel="stylesheet" href="./frontend/styles/register.css" />
+    <link rel="stylesheet" href="./frontend/styles/chat.css" />
+    <!-- Material Icons CDN -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <title>real-time-forum</title>
+</head>
+
+<body>
+    <div class="logout-nav">
+        <div class="logo">ForumiT</div>
+        <div class="nav-right">
+            <div class="profile"></div>
+            <button class="logout-btn" title="Sign out">
+                <span class="material-icons" style="font-size: 24px;">logout</span>
+            </button>
+        </div>
+    </div>
+    <div class="signup-nav">
+        <div class="logo">ForumiT</div>
+        <div class="nav-right">
+            <button class="signup-btn">
+                Sign Up
+                <span class="material-icons" style="vertical-align: middle;">arrow_forward</span>
+            </button>
+        </div>
+    </div>
+    <!-- register -->
+    <div class="register-container">
+        <div class="register">
+            <form>
+                <div class="split-input">
+                    <div class="register-wrapper">
+                        <div class="register-label">
+                            <label for="fname">Firstname</label>
+                        </div>
+                        <input type="text" id="fname" class="register-input" name="fname" />
+                    </div>
+                    <div class="register-wrapper">
+                        <div class="register-label">
+                            <label for="lname">Surname</label>
+                        </div>
+                        <input type="text" id="lname" class="register-input" name="lname" />
+                    </div>
+                </div>
+                <div class="register-wrapper">
+                    <div class="register-label">
+                        <label for="email">Email</label>
+                    </div>
+                    <input type="email" id="email" class="register-input" name="email" />
+                </div>
+                <div class="register-wrapper">
+                    <div class="register-label">
+                        <label for="username">Username</label>
+                    </div>
+                    <input type="text" id="register-username" class="register-input" name="username" />
+                </div>
+                <div class="split-input">
+                    <div class="register-wrapper" id="register-wrapper-age">
+                        <div class="register-label">
+                            <label for="age">DOB</label>
+                        </div>
+                        <input type="date" id="age" class="register-input" name="age" />
+                    </div>
+                    <div class="register-wrapper" id="register-wrapper-gender">
+                        <div class="register-label">
+                            <label for="gender">Gender</label>
+                        </div>
+                        <input type="text" id="gender" class="register-input" name="gender">
+                    </div>
+                </div>
+                <div class="register-wrapper">
+                    <div class="register-label">
+                        <label for="password">Password</label>
+                    </div>
+                    <input type="password" id="register-password" class="register-input" name="password" />
+                </div>
+                <button class="register-btn">Create Account</button>
+                <div class="signedup">Already have an account? <span id="signin-link" class="link">Sign In</span></div>
+            </form>
+        </div>
+    </div>
+    <!-- sign in -->
+    <div class="signin">
+        <label for="username">Email or Username:</label>
+        <input type="text" class="signin-input" id="email-username" name="username" /><br>
+        <label for="password">Password:</label>
+        <input type="password" class="signin-input" id="signin-password" name="password" /><br>
+        <button class="signin-btn">
+            SIGN IN
+            <span class="material-icons" style="vertical-align: middle;">arrow_forward</span>
+        </button>
+        <div class="not-signedup">Don’t have an account? <span id="signup-link" class="link">Sign Up!</span></div>
+    </div>
+    <div class="content-wrapper">
+        <!-- mid section -->
+        <div class="mid-section">
+            <!-- top panel -->
+            <div class="top-panel">
+                <div class="new-post-notif-wrapper">
+                    <div class="new-post-popup link">
+                        new post
+                    </div>
+                </div>
+                <div class="top-panel-nav">
+                    <div class="filter-categories">
+    <select name="categories" id="categories">
+        <option value="all">All posts</option>
+        <option value="technology">Technology</option>
+        <option value="news">News</option>
+        <option value="sports">Sports</option>
+        <option value="entertainment">Entertainment</option>
+        <option value="music">Music</option>
+        <option value="gaming">Gaming</option>
+        <option value="lifestyle">Lifestyle</option>
+        <option value="education">Education</option>
+        <option value="health">Health</option>
+        <option value="travel">Travel</option>
+    </select>
+</div>
+                    <button type="button" class="new-post-btn" title="New post">
+                        <span class="material-icons" style="font-size: 24px;">add_circle</span>
+                    </button>
+                </div>
+            </div>
+            <!-- main page -->
+            <div class="posts-container">
+                <div class="new-post-notif-wrapper">
+                    <div class="new-post-popup link">
+                        new posts
+                    </div>
+                </div>
+            </div>
+            <!-- create post -->
+            <div class="create-post-container">
+                <div class="back">
+                    <span class="material-icons" style="font-size: 24px;">arrow_back</span>
+                </div>
+                <div class="create-title">
+                    <input id="create-post-title" type="text" placeholder="Title..." />
+                </div>
+                <textarea id="create-post-body" placeholder="Start typing..." name="body" rows="4" cols="50"></textarea>
+                <select name="categories" id="create-post-categories">
+                    <option value="all">All posts</option>
+        <option value="technology">Technology</option>
+        <option value="news">News</option>
+        <option value="sports">Sports</option>
+        <option value="entertainment">Entertainment</option>
+        <option value="music">Music</option>
+        <option value="gaming">Gaming</option>
+        <option value="lifestyle">Lifestyle</option>
+        <option value="education">Education</option>
+        <option value="health">Health</option>
+        <option value="travel">Travel</option>
+                </select>
+                <button class="create-post-btn">
+                    <h4>Create Post</h4>
+                </button>
+            </div>
+            <!-- post page -->
+            <div class="post-container">
+                <div class="back" id="back-btn">
+                    <span class="material-icons" style="font-size: 24px;">arrow_back</span>
+                </div>
+                <div class="post-wrapper">
+                    <div class="space-between">
+                        <div class="title" id="title">This is a title</div>
+                        <div class="category">All Posts</div>
+                    </div>
+                    <div class="author" id="author-post">
+                       <div class="left" style="display: flex; align-items: center; gap: 12px;">
+    <span class="material-icons" style="font-size: 40px; color: #1976d2;">account_circle</span>
+    <div>
+        <div class="post-username" id="username" style="font-weight: 600; font-size: 1.1em;">Username</div>
+        <div class="date" id="date" style="color: #888; font-size: 0.95em;">Date</div>
+                    </div>
+                    <div class="comments-wrapper">
+                        <div class="likes-dislikes-wrapper">
+                            <div class="likes-wrapper">
+                                <span class="material-icons" id="like-btn" style="color: #2196f3;">thumb_up</span>
+                                <div class="likes" id="post-likes"></div>
+                            </div>
+                            <div class="likes-wrapper">
+                                <span class="material-icons" id="dislike-btn" style="color: #f44336;">thumb_down</span>
+                                <div class="dislike" id="post-dislikes"></div>
+                            </div>
+                        </div>
+                        <div class="comments">
+                            <span class="material-icons">comment</span>
+                            <div class="comment" id="post-comments"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- comments -->
+                <div class="send-comment">
+                    <input type="text" id="comment-input" placeholder="Write comment" />
+                    <button class="send-comment-btn">
+                        <span class="material-icons">send</span>
+                    </button>
+                </div>
+                <div class="comments-container"></div>
+            </div>
+            <!-- chat -->
+            <div class="chat-wrapper">
+                <div class="chat-username-wrapper">
+                    <div class="chat-user">
+                        <span class="material-icons" style="font-size: 32px;">account_circle</span>
+                        <div class="chat-user-username"></div>
+                    </div>
+                    <div class="close-chat link" title="Close chat">
+                        <span class="material-icons">close</span>
+                    </div>
+                </div>
+                <div class="chat"></div>
+                <div class="send-wrapper">
+                    <input type="text" id="chat-input" placeholder="Start typing...">
+                    <button id="send-btn">
+                        <span class="material-icons">send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!--  right panel -->
+        <div class="right-panel">
+    <div class="users">
+        <h3 style="margin-bottom: 12px;">Community Members</h3>
+        <div class="members-list">
+           
+        </div>
+    </div>
+    </div>
+    <script src="./frontend/index.js"></script>
+    <script src="./frontend/chat.js"></script>
+</body>
+
+</html>
