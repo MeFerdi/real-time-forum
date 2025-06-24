@@ -82,9 +82,11 @@ class ChatUI {
             console.log('Initializing chat for user:', window.views.currentUser.username);
 
             // Load conversations
+            console.log('Loading conversations...');
             await this.loadConversations();
 
             // Load all users for new conversations
+            console.log('Loading all users...');
             await this.loadAllUsers();
 
             // Request current online users from WebSocket if connected
@@ -105,44 +107,46 @@ class ChatUI {
         }
     }
 
-    async loadConversations() {
-        try {
-            const result = await API.request('/messages/conversations');
-            if (result.success && result.data) {
-                // Only clear conversations if this is the first load
-                if (!this.isInitialized) {
-                    this.conversations.clear();
-                }
+   async loadConversations() {
+    try {
+        const result = await API.request('/messages/conversations');
+        if (result.success && result.data) {
+            // Optionally clear conversations every time for a fresh state
+            // this.conversations.clear();
 
-                result.data.forEach(conv => {
-                    const existingConv = this.conversations.get(conv.user_id);
-                    if (existingConv) {
-                        // Merge with existing conversation, preserving real-time updates
-                        existingConv.last_message = conv.last_message;
-                        existingConv.unread_count = conv.unread_count;
-                        // Keep the online status from real-time updates
-                        if (!existingConv.hasOwnProperty('is_online')) {
-                            existingConv.is_online = conv.is_online || false;
-                        }
-                    } else {
-                        // Add new conversation
-                        this.conversations.set(conv.user_id, conv);
+            result.data.forEach(conv => {
+                const existingConv = this.conversations.get(conv.user_id);
+                if (existingConv) {
+                    // Merge with existing conversation, preserving real-time updates
+                    existingConv.last_message = conv.last_message;
+                    existingConv.unread_count = conv.unread_count;
+                    // Always update online status from server if present
+                    if ('is_online' in conv) {
+                        existingConv.is_online = conv.is_online;
                     }
-                });
-                this.renderConversations();
-            }
-        } catch (error) {
-            console.error('Failed to load conversations:', error);
-            // Don't redirect on auth errors here, let the main app handle it
+                } else {
+                    // Add new conversation
+                    this.conversations.set(conv.user_id, conv);
+                }
+            });
+            this.renderConversations();
         }
+    } catch (error) {
+        console.error('Failed to load conversations:', error);
     }
-
+}
     async loadAllUsers() {
+        console.log('loadAllUsers called');
         try {
             const result = await API.request('/messages/users');
+            console.log('loadAllUsers API result:', result);
             if (result.success && result.data) {
+                console.log('Users data received:', result.data);
+                console.log('Current conversations before adding users:', this.conversations.size);
                 result.data.forEach(user => {
+                    console.log('Processing user:', user);
                     if (!this.conversations.has(user.id)) {
+                        console.log('Adding new user to conversations:', user.username);
                         // Add users without conversations
                         this.conversations.set(user.id, {
                             user_id: user.id,
@@ -153,9 +157,15 @@ class ChatUI {
                             unread_count: 0,
                             is_online: false
                         });
+                    } else {
+                        console.log('User already exists in conversations:', user.username);
                     }
                 });
+                console.log('Total conversations after adding users:', this.conversations.size);
+                console.log('Calling renderConversations...');
                 this.renderConversations();
+            } else {
+                console.log('loadAllUsers failed - result:', result);
             }
         } catch (error) {
             console.error('Failed to load users:', error);
@@ -164,58 +174,72 @@ class ChatUI {
     }
 
     renderConversations() {
-        const conversationsList = document.getElementById('conversations-list');
-        if (!conversationsList) return;
-
-        // Sort conversations by last message time, then alphabetically
-        const sortedConversations = Array.from(this.conversations.values()).sort((a, b) => {
-            if (a.last_message && b.last_message) {
-                return new Date(b.last_message.created_at) - new Date(a.last_message.created_at);
-            } else if (a.last_message) {
-                return -1;
-            } else if (b.last_message) {
-                return 1;
-            } else {
-                return a.username.localeCompare(b.username);
-            }
-        });
-
-        conversationsList.innerHTML = sortedConversations.map(conv => {
-            const isOnline = this.onlineUsers.has(conv.user_id);
-            const lastMessageTime = conv.last_message ?
-                this.formatRelativeTime(conv.last_message.created_at) : '';
-            const lastMessagePreview = conv.last_message ?
-                conv.last_message.content.substring(0, 50) + (conv.last_message.content.length > 50 ? '...' : '') :
-                'No messages yet';
-
-            // Add visual emphasis for unread messages
-            const hasUnread = conv.unread_count > 0;
-            const conversationClass = `conversation-item ${this.currentConversation === conv.user_id ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`;
-
-            return `
-                <div class="${conversationClass}"
-                     data-user-id="${conv.user_id}"
-                     onclick="window.chatUI.selectConversation(${conv.user_id})">
-                    <div class="conversation-avatar">
-                        <img src="https://ui-avatars.com/api/?name=${conv.username}&background=random"
-                             alt="${conv.username}'s avatar" />
-                        <div class="status-indicator ${isOnline ? 'online' : 'offline'}"></div>
-                    </div>
-                    <div class="conversation-info">
-                        <div class="conversation-header">
-                            <span class="username ${hasUnread ? 'unread' : ''}">${conv.username}</span>
-                            <span class="timestamp">${lastMessageTime}</span>
-                        </div>
-                        <div class="conversation-preview">
-                            <span class="last-message ${hasUnread ? 'unread' : ''}">${lastMessagePreview}</span>
-                            ${hasUnread ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+    console.log('renderConversations called');
+    const conversationsList = document.getElementById('conversations-list');
+    console.log('conversations-list element:', conversationsList);
+    if (!conversationsList) {
+        console.error('conversations-list element not found!');
+        return;
     }
 
+    // Sort conversations by last message time, then alphabetically
+    console.log('Total conversations to render:', this.conversations.size);
+    console.log('Conversations data:', Array.from(this.conversations.values()));
+    const sortedConversations = Array.from(this.conversations.values()).sort((a, b) => {
+        if (a.last_message && b.last_message) {
+            return new Date(b.last_message.created_at) - new Date(a.last_message.created_at);
+        } else if (a.last_message) {
+            return -1;
+        } else if (b.last_message) {
+            return 1;
+        } else {
+            return (a.username || '').localeCompare(b.username || '');
+        }
+    });
+
+    conversationsList.innerHTML = sortedConversations.map(conv => {
+        const username = conv.username || 'User';
+        const isOnline = ('is_online' in conv) ? conv.is_online : this.onlineUsers.has(conv.user_id);
+        const lastMessageTime = conv.last_message ?
+            this.formatRelativeTime(conv.last_message.created_at) : '';
+        const lastMessagePreview = conv.last_message ?
+            conv.last_message.content.substring(0, 50) + (conv.last_message.content.length > 50 ? '...' : '') :
+            'No messages yet';
+
+        // Add visual emphasis for unread messages
+        const hasUnread = conv.unread_count > 0;
+        const conversationClass = `conversation-item ${this.currentConversation === conv.user_id ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`;
+
+        return `
+            <div class="${conversationClass}"
+                 data-user-id="${conv.user_id}">
+                <div class="conversation-avatar">
+                    <img src="https://ui-avatars.com/api/?name=${username}&background=random"
+                         alt="${username}'s avatar" />
+                    <div class="status-indicator ${isOnline ? 'online' : 'offline'}"></div>
+                </div>
+                <div class="conversation-info">
+                    <div class="conversation-header">
+                        <span class="username ${hasUnread ? 'unread' : ''}">${username}</span>
+                        <span class="timestamp">${lastMessageTime}</span>
+                    </div>
+                    <div class="conversation-preview">
+                        <span class="last-message ${hasUnread ? 'unread' : ''}">${lastMessagePreview}</span>
+                        ${hasUnread ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Event delegation for conversation selection
+    conversationsList.onclick = (e) => {
+        const item = e.target.closest('.conversation-item');
+        if (item && item.dataset.userId) {
+            this.selectConversation(Number(item.dataset.userId));
+        }
+    };
+}
     async selectConversation(userID) {
         console.log('selectConversation called with userID:', userID);
         this.currentConversation = userID;
@@ -253,27 +277,30 @@ class ChatUI {
         this.renderConversations();
     }
 
-    updateChatHeader(userID) {
-        const conversation = this.conversations.get(userID);
-        if (!conversation) return;
+   updateChatHeader(userID) {
+    const conversation = this.conversations.get(userID);
+    if (!conversation) return;
 
-        const chatHeader = document.getElementById('chat-header');
-        const isOnline = this.onlineUsers.has(userID);
-        
-        chatHeader.innerHTML = `
-            <div class="chat-user-info">
-                <div class="avatar">
-                    <img src="https://ui-avatars.com/api/?name=${conversation.username}&background=random" 
-                         alt="${conversation.username}'s avatar" />
-                    <div class="status-indicator ${isOnline ? 'online' : 'offline'}"></div>
-                </div>
-                <div class="user-details">
-                    <span class="username">${conversation.username}</span>
-                    <span class="status">${isOnline ? 'Online' : 'Offline'}</span>
-                </div>
+    const chatHeader = document.getElementById('chat-header');
+    if (!chatHeader) return;
+
+    const username = conversation.username || 'User';
+    const isOnline = ('is_online' in conversation) ? conversation.is_online : this.onlineUsers.has(userID);
+
+    chatHeader.innerHTML = `
+        <div class="chat-user-info">
+            <div class="avatar">
+                <img src="https://ui-avatars.com/api/?name=${username}&background=random" 
+                     alt="${username}'s avatar" />
+                <div class="status-indicator ${isOnline ? 'online' : 'offline'}"></div>
             </div>
-        `;
-    }
+            <div class="user-details">
+                <span class="username">${username}</span>
+                <span class="status">${isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+        </div>
+    `;
+}
 
     enableMessageInput() {
         const messageInput = document.getElementById('message-input');
@@ -446,7 +473,6 @@ class ChatUI {
         }
 
         // Update conversations list to reflect new message (only if on chat page)
-        const isOnChatPage = window.location.hash === '#/chat' || window.location.pathname === '/chat';
         if (isOnChatPage) {
             this.renderConversations();
         } else {
