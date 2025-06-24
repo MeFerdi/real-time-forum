@@ -246,7 +246,7 @@ func ListPosts(db *sql.DB) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	posts := make([]Post, 0) // Initialize as empty slice instead of nil slice
 	for rows.Next() {
 		var post Post
 		err := rows.Scan(
@@ -318,7 +318,7 @@ func ListPostsByCategory(db *sql.DB, categoryID int64) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	posts := make([]Post, 0) // Initialize as empty slice instead of nil slice
 	for rows.Next() {
 		var post Post
 		err := rows.Scan(
@@ -389,7 +389,7 @@ func ListPostsByUserID(db *sql.DB, userID int64) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	posts := make([]Post, 0) // Initialize as empty slice instead of nil slice
 	for rows.Next() {
 		var post Post
 		err := rows.Scan(
