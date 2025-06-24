@@ -91,29 +91,33 @@ class Views {
         document.getElementById('profileBtn-mobile')?.addEventListener('click', () => this.showProfile());
     }
 
-    // Authentication handlers
-    async handleLogin(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const credentials = {
-            login: formData.get('login'),
-            password: formData.get('password')
-        };
+   async handleLogin(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const credentials = {
+        login: formData.get('login'),
+        password: formData.get('password')
+    };
 
-        const result = await API.login(credentials);
-        if (result.success) {
-            this.currentUser = result.data;
-            router.setAuthenticated(true);
-            this.categoriesLoaded = false; // Reset categories flag
-            router.navigate('/');
-            await this.loadCategories(); // Load categories first
-            this.updateProfileCard(); // Update profile card with user info
-            this.loadPosts(); // Then load posts
-        } else {
-            alert('Login failed: ' + result.error);
+    const result = await API.login(credentials);
+    if (result.success) {
+        this.currentUser = result.data;
+        router.setAuthenticated(true);
+        this.categoriesLoaded = false; // Reset categories flag
+        router.navigate('/');
+        await this.loadCategories(); // Load categories first
+        this.updateProfileCard(); // Update profile card with user info
+        this.loadPosts(); // Then load posts
+
+        // --- Ensure chat is initialized for the new session ---
+        if (window.Chat) {
+            window.Chat.isInitialized = false; // Force re-initialization
+            window.Chat.initializeChat();
         }
+    } else {
+        alert('Login failed: ' + result.error);
     }
-
+}
     async handleRegister(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -137,37 +141,43 @@ class Views {
     }
 
     async handleLogout() {
-        const result = await API.logout();
-        if (result.success) {
-            this.currentUser = null;
-            router.setAuthenticated(false);
+    const result = await API.logout();
+    if (result.success) {
+        this.currentUser = null;
+        router.setAuthenticated(false);
 
-            // Disconnect WebSocket
-            if (window.wsClient) {
-                window.wsClient.disconnect();
-            }
-
-            // Close any open profile modal first
-            const modal = document.querySelector('.modal.active');
-            if (modal) {
-                document.body.removeChild(modal);
-            }
-
-            router.navigate('/login');
-            // Add a success message to the login form
-            const loginSection = document.getElementById('login-section');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message success';
-            messageDiv.textContent = 'Successfully logged out. Please log in to continue.';
-            const existingMessage = loginSection.querySelector('.message');
-            if (existingMessage) {
-                loginSection.removeChild(existingMessage);
-            }
-            loginSection.insertBefore(messageDiv, document.getElementById('login-form'));
-        } else {
-            alert('Logout failed: ' + (result.error || 'Unknown error'));
+        // Disconnect WebSocket
+        if (window.wsClient) {
+            window.wsClient.disconnect();
         }
+
+        // --- Reset chat state on logout ---
+        if (window.Chat) {
+            window.Chat.isInitialized = false;
+            if (window.Chat.disconnect) window.Chat.disconnect();
+        }
+
+        // Close any open profile modal first
+        const modal = document.querySelector('.modal.active');
+        if (modal) {
+            document.body.removeChild(modal);
+        }
+
+        router.navigate('/login');
+        // Add a success message to the login form
+        const loginSection = document.getElementById('login-section');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message success';
+        messageDiv.textContent = 'Successfully logged out. Please log in to continue.';
+        const existingMessage = loginSection.querySelector('.message');
+        if (existingMessage) {
+            loginSection.removeChild(existingMessage);
+        }
+        loginSection.insertBefore(messageDiv, document.getElementById('login-form'));
+    } else {
+        alert('Logout failed: ' + (result.error || 'Unknown error'));
     }
+}
 
     // Post and comment handlers
     async loadPosts(category = '', filter = '') {
