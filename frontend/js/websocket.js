@@ -29,8 +29,9 @@ class WebSocketClient {
 
     connect() {
         if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-            return;
-        }
+        console.log('WebSocket already connecting or open, skipping new connection.');
+        return;
+    }
 
         try {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -89,19 +90,23 @@ class WebSocketClient {
         }
     }
 
-    handleClose(event) {
-        console.log('WebSocket disconnected:', event.code, event.reason);
-        this.isConnected = false;
-        this.onlineUsers.clear();
-        
-        // Notify UI about connection status
-        this.notifyConnectionStatus(false);
-        
-        // Attempt to reconnect if not a normal closure
-        if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.scheduleReconnect();
-        }
+   handleClose(event) {
+    console.log('WebSocket disconnected:', event.code, event.reason);
+    this.isConnected = false;
+    this.onlineUsers.clear();
+
+    // Debug: Log reconnect attempts and current state
+    console.log(`WebSocket readyState: ${this.ws ? this.ws.readyState : 'N/A'}`);
+    console.log(`Reconnect attempts so far: ${this.reconnectAttempts}`);
+
+    // Notify UI about connection status
+    this.notifyConnectionStatus(false);
+
+    // Attempt to reconnect if not a normal closure
+    if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.scheduleReconnect();
     }
+}
 
     handleError(error) {
         console.error('WebSocket error:', error);
