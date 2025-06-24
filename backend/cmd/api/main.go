@@ -43,13 +43,18 @@ func main() {
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db)
+	messageHandler := handlers.NewMessageHandler(db)
+
+	// Initialize WebSocket hub
+	hub := handlers.NewHub(db)
+	go hub.Run()
 
 	// Create router
 	mux := http.NewServeMux()
 
 	// Serve static files for frontend
 	fs := http.FileServer(http.Dir("../frontend"))
-	mux.Handle("/", http.StripPrefix("/", fs))
+	mux.Handle("/", fs)
 
 	// Register public API routes
 	mux.HandleFunc("/api/register", userHandler.Register)
@@ -65,6 +70,14 @@ func main() {
 	mux.HandleFunc("/api/posts/", auth.RequireAuth(postHandler.HandlePostRoutes, db))
 	mux.HandleFunc("/api/posts/like", auth.RequireAuth(postHandler.LikePost, db))
 	mux.HandleFunc("/api/comments/like", auth.RequireAuth(postHandler.LikeComment, db))
+
+	// Register WebSocket and message routes
+	mux.HandleFunc("/ws", hub.WebSocketHandler)
+	mux.HandleFunc("/api/messages/conversations", auth.RequireAuth(messageHandler.GetConversations, db))
+	mux.HandleFunc("/api/messages/history", auth.RequireAuth(messageHandler.GetConversationHistory, db))
+	mux.HandleFunc("/api/messages/mark-read", auth.RequireAuth(messageHandler.MarkAsRead, db))
+	mux.HandleFunc("/api/messages/users", auth.RequireAuth(messageHandler.GetAllUsers, db))
+	mux.HandleFunc("/api/messages/send", auth.RequireAuth(messageHandler.SendMessage, db))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
