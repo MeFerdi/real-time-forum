@@ -20,13 +20,13 @@ type PrivateMessage struct {
 
 // Conversation represents a conversation between two users
 type Conversation struct {
-	UserID       int64            `json:"user_id"`
-	Username     string           `json:"username"`
-	FirstName    string           `json:"first_name"`
-	LastName     string           `json:"last_name"`
-	LastMessage  *PrivateMessage  `json:"last_message"`
-	UnreadCount  int              `json:"unread_count"`
-	IsOnline     bool             `json:"is_online"`
+	UserID      int64           `json:"user_id"`
+	Username    string          `json:"username"`
+	FirstName   string          `json:"first_name"`
+	LastName    string          `json:"last_name"`
+	LastMessage *PrivateMessage `json:"last_message"`
+	UnreadCount int             `json:"unread_count"`
+	IsOnline    bool            `json:"is_online"`
 }
 
 // CreatePrivateMessage creates a new private message
@@ -137,11 +137,13 @@ func GetConversationHistory(db *sql.DB, userID1, userID2 int64, limit, offset in
 			&sender.LastName,
 		)
 		if err != nil {
+			// log.Printf("GetConversationHistory scan error: %v", err)
 			return nil, err
 		}
 
 		sender.ID = message.SenderID
 		message.Sender = &sender
+
 		messages = append(messages, message)
 	}
 
@@ -208,13 +210,13 @@ func GetUserConversations(db *sql.DB, userID int64) ([]Conversation, error) {
 // getLastMessage retrieves the last message between two users
 func getLastMessage(db *sql.DB, userID1, userID2 int64) (*PrivateMessage, error) {
 	query := `
-		SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at,
-		       u.username, u.first_name, u.last_name
-		FROM messages m
-		JOIN users u ON m.sender_id = u.id
-		WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
-		ORDER BY m.created_at DESC
-		LIMIT 1`
+        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at,
+               u.username, u.first_name, u.last_name
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
+        ORDER BY m.created_at DESC
+        LIMIT 1`
 
 	var message PrivateMessage
 	var sender User
@@ -230,6 +232,8 @@ func getLastMessage(db *sql.DB, userID1, userID2 int64) (*PrivateMessage, error)
 		&sender.LastName,
 	)
 	if err != nil {
+		// Add debug log here
+		// log.Printf("getLastMessage error: %v", err)
 		return nil, err
 	}
 
