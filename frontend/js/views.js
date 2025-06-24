@@ -53,10 +53,15 @@ class Views {
         document.getElementById('profileBtn').addEventListener('click', () => this.showProfile());
         document.querySelector('.nav-left h1').addEventListener('click', () => router.navigate('/'));
 
+        // Mobile navigation
+        document.getElementById('homeBtn-mobile')?.addEventListener('click', () => router.navigate('/'));
+        document.getElementById('chatBtn-mobile')?.addEventListener('click', () => router.navigate('/chat'));
+        document.getElementById('profileBtn-mobile')?.addEventListener('click', () => this.showProfile());
+
         // Form submissions
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
         document.getElementById('register-form').addEventListener('submit', (e) => this.handleRegister(e));
-        document.getElementById('chat-form')?.addEventListener('submit', (e) => this.handleChatMessage(e));
+        // Chat form is now handled by chat.js
 
         // Feed events
         document.getElementById('categoryFilter').addEventListener('change', (e) => this.loadPosts(e.target.value));
@@ -122,13 +127,18 @@ class Views {
         if (result.success) {
             this.currentUser = null;
             router.setAuthenticated(false);
-            
+
+            // Disconnect WebSocket
+            if (window.wsClient) {
+                window.wsClient.disconnect();
+            }
+
             // Close any open profile modal first
             const modal = document.querySelector('.modal.active');
             if (modal) {
                 document.body.removeChild(modal);
             }
-            
+
             router.navigate('/login');
             // Add a success message to the login form
             const loginSection = document.getElementById('login-section');
@@ -569,6 +579,13 @@ class Views {
                 await this.loadCategories(); // Load categories first
                 this.updateProfileCard(); // Update profile card with user info
                 this.loadPosts(); // Then load posts
+
+                // Connect WebSocket for real-time features (with delay to ensure server is ready)
+                if (window.wsClient) {
+                    setTimeout(() => {
+                        window.wsClient.connect();
+                    }, 1000);
+                }
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
