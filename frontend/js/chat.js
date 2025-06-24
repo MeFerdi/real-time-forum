@@ -49,16 +49,30 @@ class ChatUI {
         window.addEventListener('websocket-status', (e) => {
             this.handleConnectionStatus(e.detail.connected);
         });
+
+        // Mobile back button
+        const backBtn = document.getElementById('back-to-conversations');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => this.showConversationsList());
+        }
     }
 
     async initializeChat() {
+        // Only initialize if user is authenticated
+        if (!window.views || !window.views.currentUser) {
+            console.log('User not authenticated, skipping chat initialization');
+            return;
+        }
+
         try {
+            console.log('Initializing chat for user:', window.views.currentUser.username);
+
             // Load conversations
             await this.loadConversations();
-            
+
             // Load all users for new conversations
             await this.loadAllUsers();
-            
+
         } catch (error) {
             console.error('Failed to initialize chat:', error);
         }
@@ -76,6 +90,7 @@ class ChatUI {
             }
         } catch (error) {
             console.error('Failed to load conversations:', error);
+            // Don't redirect on auth errors here, let the main app handle it
         }
     }
 
@@ -101,6 +116,7 @@ class ChatUI {
             }
         } catch (error) {
             console.error('Failed to load users:', error);
+            // Don't redirect on auth errors here, let the main app handle it
         }
     }
 
@@ -132,7 +148,7 @@ class ChatUI {
             return `
                 <div class="conversation-item ${this.currentConversation === conv.user_id ? 'active' : ''}" 
                      data-user-id="${conv.user_id}" 
-                     onclick="chatUI.selectConversation(${conv.user_id})">
+                     onclick="window.chatUI.selectConversation(${conv.user_id})">
                     <div class="conversation-avatar">
                         <img src="https://ui-avatars.com/api/?name=${conv.username}&background=random" 
                              alt="${conv.username}'s avatar" />
@@ -155,7 +171,7 @@ class ChatUI {
 
     async selectConversation(userID) {
         this.currentConversation = userID;
-        
+
         // Update WebSocket client
         if (window.wsClient) {
             window.wsClient.setCurrentConversation(userID);
@@ -164,13 +180,27 @@ class ChatUI {
         // Update UI
         this.updateChatHeader(userID);
         this.enableMessageInput();
-        
+
+        // Mobile: Show chat main and hide sidebar
+        if (window.innerWidth < 768) {
+            const chatSidebar = document.querySelector('.chat-sidebar');
+            const chatMain = document.querySelector('.chat-main');
+            const backBtn = document.getElementById('back-to-conversations');
+
+            if (chatSidebar && chatMain) {
+                chatSidebar.style.display = 'none';
+                chatMain.classList.add('active');
+                chatMain.style.display = 'flex';
+                if (backBtn) backBtn.style.display = 'flex';
+            }
+        }
+
         // Load message history
         await this.loadMessageHistory(userID);
-        
+
         // Mark messages as read
         await this.markMessagesAsRead(userID);
-        
+
         // Update conversations list
         this.renderConversations();
     }
@@ -213,9 +243,9 @@ class ChatUI {
     async loadMessageHistory(userID, offset = 0) {
         try {
             const result = await API.request(`/messages/history?user_id=${userID}&limit=10&offset=${offset}`);
-            if (result.success) {
-                const messages = result.data;
-                
+            if (result.success && result.data) {
+                const messages = Array.isArray(result.data) ? result.data : [];
+
                 if (offset === 0) {
                     // Clear existing messages for new conversation
                     this.messageHistory.set(userID, messages);
@@ -227,9 +257,20 @@ class ChatUI {
                     this.messageHistory.set(userID, allMessages);
                     this.prependMessages(messages);
                 }
+            } else {
+                // Handle case where no messages exist
+                if (offset === 0) {
+                    this.messageHistory.set(userID, []);
+                    this.renderMessages([]);
+                }
             }
         } catch (error) {
             console.error('Failed to load message history:', error);
+            // Handle authentication errors
+            if (error.message.includes('401')) {
+                console.log('User not authenticated, redirecting to login');
+                router.navigate('/login');
+            }
         }
     }
 
@@ -265,9 +306,10 @@ class ChatUI {
     }
 
     renderMessage(message) {
-        const isOwn = message.sender_id === (views.currentUser ? views.currentUser.id : 0);
+        const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
+        const isOwn = message.sender_id === currentUserId;
         const timestamp = this.formatMessageTime(message.created_at);
-        
+
         return `
             <div class="message ${isOwn ? 'own' : 'other'}">
                 <div class="message-content">
@@ -282,51 +324,101 @@ class ChatUI {
     }
 
     addMessage(messageData) {
+        const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
+
+        // Determine the conversation partner
+        const conversationPartnerId = messageData.sender_id === currentUserId ?
+                                    messageData.receiver_id : messageData.sender_id;
+
         // Add to message history
-        const userID = messageData.sender_id === (views.currentUser ? views.currentUser.id : 0) ? 
-                      messageData.receiver_id : messageData.sender_id;
-        
-        const messages = this.messageHistory.get(userID) || [];
+        const messages = this.messageHistory.get(conversationPartnerId) || [];
         messages.push(messageData);
-        this.messageHistory.set(userID, messages);
+        this.messageHistory.set(conversationPartnerId, messages);
 
         // Update conversation
-        const conversation = this.conversations.get(userID);
+        let conversation = this.conversations.get(conversationPartnerId);
         if (conversation) {
             conversation.last_message = messageData;
-            if (messageData.sender_id !== (views.currentUser ? views.currentUser.id : 0)) {
+            // Only increment unread count for received messages
+            if (messageData.sender_id !== currentUserId) {
                 conversation.unread_count = (conversation.unread_count || 0) + 1;
             }
+        } else {
+            // Create new conversation if it doesn't exist
+            conversation = {
+                user_id: conversationPartnerId,
+                username: messageData.sender ? messageData.sender.username : 'Unknown',
+                first_name: messageData.sender ? messageData.sender.first_name : '',
+                last_name: messageData.sender ? messageData.sender.last_name : '',
+                last_message: messageData,
+                unread_count: messageData.sender_id !== currentUserId ? 1 : 0,
+                is_online: this.onlineUsers.has(conversationPartnerId)
+            };
+            this.conversations.set(conversationPartnerId, conversation);
         }
 
         // Update UI if this is the current conversation
-        if (this.currentConversation === userID) {
+        if (this.currentConversation === conversationPartnerId) {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
+                // Remove "no messages" placeholder if it exists
+                const noMessages = messagesContainer.querySelector('.no-messages');
+                if (noMessages) {
+                    noMessages.remove();
+                }
+
                 const messageHTML = this.renderMessage(messageData);
                 messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
                 this.scrollToBottom();
+
+                // Auto-mark as read if it's the current conversation and message is from other user
+                if (messageData.sender_id !== currentUserId) {
+                    this.markMessagesAsRead(messageData.sender_id);
+                    conversation.unread_count = 0;
+                }
             }
         }
 
-        // Update conversations list
+        // Update conversations list to reflect new message
         this.renderConversations();
+
+        console.log('Message added:', messageData);
     }
 
     async handleSendMessage(e) {
         e.preventDefault();
-        
+
         if (!this.currentConversation) return;
 
         const messageInput = document.getElementById('message-input');
         const content = messageInput.value.trim();
-        
+
         if (!content) return;
+
+        const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
+
+        // Create optimistic message for immediate UI update
+        const optimisticMessage = {
+            id: Date.now(), // Temporary ID
+            sender_id: currentUserId,
+            receiver_id: this.currentConversation,
+            content: content,
+            is_read: false,
+            created_at: new Date().toISOString(),
+            sender: window.views.currentUser
+        };
+
+        // Clear input immediately for better UX
+        messageInput.value = '';
 
         // Send via WebSocket if connected, otherwise use HTTP API
         let success = false;
         if (window.wsClient && window.wsClient.isConnected) {
             success = window.wsClient.sendPrivateMessage(this.currentConversation, content);
+            if (success) {
+                // Add optimistic message immediately for WebSocket
+                this.addMessage(optimisticMessage);
+            }
         } else {
             // Fallback to HTTP API
             try {
@@ -343,11 +435,14 @@ class ChatUI {
                 }
             } catch (error) {
                 console.error('Failed to send message:', error);
+                // Restore input value on error
+                messageInput.value = content;
             }
         }
 
-        if (success) {
-            messageInput.value = '';
+        if (!success && window.wsClient && window.wsClient.isConnected) {
+            // Restore input value on WebSocket error
+            messageInput.value = content;
         }
     }
 
@@ -507,6 +602,28 @@ class ChatUI {
         const conversationsList = document.getElementById('conversations-list');
         if (conversationsList) {
             conversationsList.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    showConversationsList() {
+        // Mobile: Show sidebar and hide chat main
+        if (window.innerWidth < 768) {
+            const chatSidebar = document.querySelector('.chat-sidebar');
+            const chatMain = document.querySelector('.chat-main');
+            const backBtn = document.getElementById('back-to-conversations');
+
+            if (chatSidebar && chatMain) {
+                chatSidebar.style.display = 'flex';
+                chatMain.classList.remove('active');
+                chatMain.style.display = 'none';
+                if (backBtn) backBtn.style.display = 'none';
+            }
+        }
+
+        // Clear current conversation
+        this.currentConversation = null;
+        if (window.wsClient) {
+            window.wsClient.setCurrentConversation(null);
         }
     }
 
