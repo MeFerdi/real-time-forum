@@ -156,10 +156,11 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 
 	// Get comments (only parent comments)
 	rows, err = db.Query(`
-		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
-		FROM comments
-		WHERE post_id = ? AND parent_id IS NULL
-		ORDER BY created_at ASC`, id)
+		SELECT c.id, c.post_id, c.user_id, c.content, c.parent_id, c.created_at, c.updated_at,
+		       (SELECT COUNT(*) FROM likes WHERE comment_id = c.id) as like_count
+		FROM comments c
+		WHERE c.post_id = ? AND c.parent_id IS NULL
+		ORDER BY c.created_at ASC`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +176,7 @@ func GetPostByID(db *sql.DB, id int64) (*Post, error) {
 			&comment.ParentID,
 			&comment.CreatedAt,
 			&comment.UpdatedAt,
+			&comment.LikeCount,
 		)
 		if err != nil {
 			return nil, err
@@ -568,10 +570,11 @@ func GetCommentByID(db *sql.DB, id int64) (*Comment, error) {
 // getCommentReplies returns all replies for a given comment
 func getCommentReplies(db *sql.DB, parentID int64) ([]Comment, error) {
 	rows, err := db.Query(`
-		SELECT id, post_id, user_id, content, parent_id, created_at, updated_at
-		FROM comments
-		WHERE parent_id = ?
-		ORDER BY created_at ASC`, parentID)
+		SELECT c.id, c.post_id, c.user_id, c.content, c.parent_id, c.created_at, c.updated_at,
+		       (SELECT COUNT(*) FROM likes WHERE comment_id = c.id) as like_count
+		FROM comments c
+		WHERE c.parent_id = ?
+		ORDER BY c.created_at ASC`, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -588,6 +591,7 @@ func getCommentReplies(db *sql.DB, parentID int64) ([]Comment, error) {
 			&reply.ParentID,
 			&reply.CreatedAt,
 			&reply.UpdatedAt,
+			&reply.LikeCount,
 		)
 		if err != nil {
 			return nil, err
