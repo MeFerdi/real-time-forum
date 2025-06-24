@@ -47,9 +47,9 @@ class Router {
         if (section) {
             section.classList.add('active');
 
-            // Initialize chat when navigating to chat section
+            // Refresh chat when navigating to chat section
             if (path === '/chat' && window.chatUI) {
-                window.chatUI.initializeChat();
+                window.chatUI.refreshChatUI();
             }
 
             // Reset comment form if navigating away from post view
