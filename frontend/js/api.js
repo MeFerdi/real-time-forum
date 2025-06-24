@@ -106,5 +106,37 @@ const API = {
 
     async getCategories() {
         return await this.request('/categories');
+    },
+
+    // Message endpoints
+    async getConversations() {
+        return await this.request('/messages/conversations');
+    },
+
+    async getConversationHistory(userID, limit = 10, offset = 0) {
+        return await this.request(`/messages/history?user_id=${userID}&limit=${limit}&offset=${offset}`);
+    },
+
+    async sendMessage(receiverID, content) {
+        return await this.request('/messages/send', {
+            method: 'POST',
+            body: JSON.stringify({
+                receiver_id: receiverID,
+                content: content
+            })
+        });
+    },
+
+    async markMessagesAsRead(senderID) {
+        return await this.request('/messages/mark-read', {
+            method: 'POST',
+            body: JSON.stringify({
+                sender_id: senderID
+            })
+        });
+    },
+
+    async getAllUsers() {
+        return await this.request('/messages/users');
     }
 };
