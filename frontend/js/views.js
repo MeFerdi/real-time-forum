@@ -45,36 +45,50 @@ class Views {
 
     bindEvents() {
         // Navigation events
-        document.getElementById('loginBtn').addEventListener('click', () => router.navigate('/login'));
-        document.getElementById('registerBtn').addEventListener('click', () => router.navigate('/register'));
-        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
-        document.getElementById('homeBtn').addEventListener('click', () => router.navigate('/'));
-        document.getElementById('chatBtn').addEventListener('click', () => router.navigate('/chat'));
-        document.getElementById('profileBtn').addEventListener('click', () => this.showProfile());
-        document.querySelector('.nav-left h1').addEventListener('click', () => router.navigate('/'));
+        document.getElementById('loginBtn')?.addEventListener('click', () => router.navigate('/login'));
+        document.getElementById('registerBtn')?.addEventListener('click', () => router.navigate('/register'));
+        document.getElementById('homeBtn')?.addEventListener('click', () => router.navigate('/'));
+        document.getElementById('chatBtn')?.addEventListener('click', () => router.navigate('/chat'));
+        document.getElementById('profileBtn')?.addEventListener('click', () => this.showProfile());
+        document.querySelector('.nav-left h1')?.addEventListener('click', () => router.navigate('/'));
 
         // Mobile navigation
         document.getElementById('homeBtn-mobile')?.addEventListener('click', () => router.navigate('/'));
         document.getElementById('chatBtn-mobile')?.addEventListener('click', () => router.navigate('/chat'));
         document.getElementById('profileBtn-mobile')?.addEventListener('click', () => this.showProfile());
 
+        // Mobile menu toggle
+        const hamburgerBtn = document.getElementById('hamburger-menu');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        hamburgerBtn?.addEventListener('click', () => {
+            mobileMenu.classList.toggle('active');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!hamburgerBtn?.contains(e.target) && !mobileMenu?.contains(e.target)) {
+                mobileMenu?.classList.remove('active');
+            }
+        });
+
         // Form submissions
-        document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
-        document.getElementById('register-form').addEventListener('submit', (e) => this.handleRegister(e));
+        document.getElementById('login-form')?.addEventListener('submit', (e) => this.handleLogin(e));
+        document.getElementById('register-form')?.addEventListener('submit', (e) => this.handleRegister(e));
         // Chat form is now handled by chat.js
 
         // Feed events
-        document.getElementById('categoryFilter').addEventListener('change', (e) => this.loadPosts(e.target.value));
-        document.getElementById('newPostBtn').addEventListener('click', () => this.toggleQuickPostForm());
-        document.getElementById('quick-post-form').addEventListener('submit', (e) => this.handleQuickPost(e));
+        document.getElementById('categoryFilter')?.addEventListener('change', (e) => this.loadPosts(e.target.value));
+        document.getElementById('newPostBtn')?.addEventListener('click', () => this.toggleQuickPostForm());
+        document.getElementById('quick-post-form')?.addEventListener('submit', (e) => this.handleQuickPost(e));
 
         // Mobile menu events
-        document.getElementById('hamburger-menu').addEventListener('click', () => this.toggleMobileMenu());
-        document.getElementById('homeBtn-mobile').addEventListener('click', () => router.navigate('/'));
-        document.getElementById('chatBtn-mobile').addEventListener('click', () => router.navigate('/chat'));
-        document.getElementById('loginBtn-mobile').addEventListener('click', () => router.navigate('/login'));
-        document.getElementById('registerBtn-mobile').addEventListener('click', () => router.navigate('/register'));
-        document.getElementById('profileBtn-mobile').addEventListener('click', () => this.showProfile());
+        document.getElementById('hamburger-menu')?.addEventListener('click', () => this.toggleMobileMenu());
+        document.getElementById('homeBtn-mobile')?.addEventListener('click', () => router.navigate('/'));
+        document.getElementById('chatBtn-mobile')?.addEventListener('click', () => router.navigate('/chat'));
+        document.getElementById('loginBtn-mobile')?.addEventListener('click', () => router.navigate('/login'));
+        document.getElementById('registerBtn-mobile')?.addEventListener('click', () => router.navigate('/register'));
+        document.getElementById('profileBtn-mobile')?.addEventListener('click', () => this.showProfile());
     }
 
     // Authentication handlers
@@ -164,29 +178,32 @@ class Views {
 
             // Apply additional filters if specified
             if (filter === 'my-posts') {
-                filteredPosts = result.data.filter(post => 
+                filteredPosts = result.data.filter(post =>
                     post.author.username === this.currentUser.username
                 );
                 filterMessage = 'You haven\'t created any posts yet.';
             } else if (filter === 'liked-posts') {
-                filteredPosts = result.data.filter(post => 
+                filteredPosts = result.data.filter(post =>
                     post.like_count > 0
                 );
                 filterMessage = 'You haven\'t liked any posts yet.';
+            } else if (category && category !== '') {
+                // If a specific category is selected, set appropriate message
+                filterMessage = 'No posts found in this category.';
             }
 
             const container = document.getElementById('posts-container');
-            
+
             if (filteredPosts.length === 0) {
                 container.innerHTML = `
                     <div class="no-posts-message">
                         <p>${filterMessage || 'No posts found.'}</p>
-                        ${filter ? `<button onclick="views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
+                        ${(filter || category) ? `<button onclick="window.views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
                     </div>
                 `;
             } else {
                 container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
-                
+
                 // Add click handlers to posts
                 container.querySelectorAll('.post-card').forEach(card => {
                     card.addEventListener('click', () => this.loadPost(card.dataset.postId));
@@ -234,16 +251,54 @@ class Views {
             commentElement.innerHTML = `
                 <p>${newComment.content}</p>
                 <div class="comment-meta">
-                    <span>By ${newComment.author.username}</span>
-                    <span>${new Date(newComment.created_at).toLocaleString()}</span>
-                    <button onclick="views.handleCommentLike(${newComment.id})">
-                        💗 ${newComment.like_count || 0}
-                    </button>
+                    <div class="user-info">
+                        <div class="avatar">
+                            <img src="https://ui-avatars.com/api/?name=${newComment.author.username}&background=random" alt="${newComment.author.username}'s avatar" />
+                        </div>
+                        <div class="post-meta-info">
+                            <span class="username">${newComment.author.username}</span>
+                            <span class="timestamp">${this.formatRelativeTime(newComment.created_at)}</span>
+                        </div>
+                    </div>
+                    <span class="action-icon like-icon" onclick="window.views.handleCommentLike(${newComment.id})" data-comment-id="${newComment.id}">
+                        <i class="fas fa-heart"></i>
+                        <span class="count">${newComment.like_count || 0}</span>
+                    </span>
                 </div>
             `;
             commentsContainer.insertBefore(commentElement, commentsContainer.firstChild);
+
+            // Hide the comment form after successful submission
+            e.target.classList.add('hidden');
+
+            // Update comment count in the UI
+            const commentCountSpans = document.querySelectorAll('.comment-icon .count');
+            commentCountSpans.forEach(span => {
+                const currentCount = parseInt(span.textContent) || 0;
+                span.textContent = currentCount + 1;
+            });
+
+            // Update comments section header
+            const commentsHeader = document.querySelector('#comments-section h3');
+            if (commentsHeader) {
+                const currentCount = parseInt(commentsHeader.textContent.match(/\d+/)?.[0] || '0');
+                commentsHeader.textContent = `Comments (${currentCount + 1})`;
+            }
         } else {
             alert('Failed to add comment: ' + (result.error || 'Unknown error'));
+        }
+    }
+
+    toggleCommentForm() {
+        const commentForm = document.getElementById('comment-form');
+        if (commentForm) {
+            commentForm.classList.toggle('hidden');
+            if (!commentForm.classList.contains('hidden')) {
+                const textarea = commentForm.querySelector('textarea');
+                if (textarea) {
+                    textarea.focus();
+                }
+            }
         }
     }
 
@@ -376,12 +431,14 @@ class Views {
                 <p>${post.content.substring(0, 150)}...</p>
                 <div class="post-meta">
                     <div class="post-actions">
-                        <button onclick="event.stopPropagation(); views.handleLike(${post.id})" class="action-btn">
-                            💗 ${post.like_count || 0}
-                        </button>
-                        <button onclick="event.stopPropagation(); views.loadPost(${post.id})" class="action-btn">
-                            💬 ${post.comments ? post.comments.length : 0}
-                        </button>
+                        <span class="action-icon like-icon" onclick="event.stopPropagation(); window.views.handleLike(${post.id})" data-post-id="${post.id}">
+                            <i class="fas fa-heart"></i>
+                            <span class="count">${post.like_count || 0}</span>
+                        </span>
+                        <span class="action-icon comment-icon" onclick="event.stopPropagation(); window.views.loadPost(${post.id})">
+                            <i class="fas fa-comment"></i>
+                            <span class="count">${post.comments ? post.comments.length : 0}</span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -406,13 +463,20 @@ class Views {
                 <h2>${post.title}</h2>
                 <p>${post.content}</p>
                 <div class="post-meta">
-                    <button onclick="views.handleLike(${post.id})">
-                        💗 ${post.like_count}
-                    </button>
+                    <div class="post-actions">
+                        <span class="action-icon like-icon" onclick="window.views.handleLike(${post.id})" data-post-id="${post.id}">
+                            <i class="fas fa-heart"></i>
+                            <span class="count">${post.like_count || 0}</span>
+                        </span>
+                        <span class="action-icon comment-icon" onclick="window.views.toggleCommentForm()">
+                            <i class="fas fa-comment"></i>
+                            <span class="count">${post.comments ? post.comments.length : 0}</span>
+                        </span>
+                    </div>
                 </div>
                 <div id="comments-section">
-                    <h3>Comments</h3>
-                    <form id="comment-form" class="comment-form">
+                    <h3>Comments (${post.comments ? post.comments.length : 0})</h3>
+                    <form id="comment-form" class="comment-form hidden">
                         <textarea name="content" placeholder="Write a comment..." required></textarea>
                         <button type="submit">Add Comment</button>
                     </form>
@@ -438,9 +502,10 @@ class Views {
                             <span class="timestamp">${this.formatRelativeTime(comment.created_at)}</span>
                         </div>
                     </div>
-                    <button onclick="views.handleCommentLike(${comment.id})">
-                        💗 ${comment.like_count}
-                    </button>
+                    <span class="action-icon like-icon" onclick="window.views.handleCommentLike(${comment.id})" data-comment-id="${comment.id}">
+                        <i class="fas fa-heart"></i>
+                        <span class="count">${comment.like_count || 0}</span>
+                    </span>
                 </div>
             </div>
         `).join('');
@@ -449,10 +514,20 @@ class Views {
     async handleLike(postId) {
         const result = await API.likePost(postId);
         if (result.success) {
-            // Update all like buttons for this post (both in cards and full view)
-            const likeButtons = document.querySelectorAll(`button[onclick*="views.handleLike(${postId})"]`);
-            likeButtons.forEach(button => {
-                button.innerHTML = `💗 ${result.data.like_count}`;
+            // Update only the like icons for this post (not comment icons)
+            const likeIcons = document.querySelectorAll(`[data-post-id="${postId}"].like-icon .count`);
+            likeIcons.forEach(countSpan => {
+                countSpan.textContent = result.data.like_count;
+            });
+
+            // Update the icon color based on like status
+            const likeIconElements = document.querySelectorAll(`[data-post-id="${postId}"].like-icon`);
+            likeIconElements.forEach(icon => {
+                if (result.data.has_liked) {
+                    icon.classList.add('liked');
+                } else {
+                    icon.classList.remove('liked');
+                }
             });
         } else {
             alert('Failed to like post: ' + (result.error || 'Unknown error'));
@@ -462,10 +537,20 @@ class Views {
     async handleCommentLike(commentId) {
         const result = await API.likeComment(commentId);
         if (result.success) {
-            // Update only the comment like count
-            const likeButton = document.querySelector(`button[onclick="views.handleCommentLike(${commentId})"]`);
-            if (likeButton) {
-                likeButton.innerHTML = `💗 ${result.data.like_count}`;
+            // Update the comment like count
+            const likeIcon = document.querySelector(`[data-comment-id="${commentId}"]`);
+            if (likeIcon) {
+                const countSpan = likeIcon.querySelector('.count');
+                if (countSpan) {
+                    countSpan.textContent = result.data.like_count;
+                }
+
+                // Update the icon color based on like status
+                if (result.data.has_liked) {
+                    likeIcon.classList.add('liked');
+                } else {
+                    likeIcon.classList.remove('liked');
+                }
             }
         } else {
             alert('Failed to like comment: ' + (result.error || 'Unknown error'));
@@ -491,7 +576,7 @@ class Views {
                             <p><strong>Member since:</strong> ${new Date(result.data.created_at).toLocaleDateString()}</p>
                         </div>
                         <div class="profile-actions">
-                            <button onclick="views.handleLogout()" class="signout-btn">Sign Out</button>
+                            <button onclick="window.views.handleLogout()" class="signout-btn">Sign Out</button>
                         </div>
                     </div>
                 `;
@@ -573,7 +658,7 @@ class Views {
     async init() {
         try {
             const profile = await API.getProfile();
-            if (profile.success) {
+            if (profile.success && profile.data) {
                 this.currentUser = profile.data;
                 router.setAuthenticated(true);
                 await this.loadCategories(); // Load categories first
@@ -586,12 +671,20 @@ class Views {
                         window.wsClient.connect();
                     }, 1000);
                 }
+
+                console.log('User authenticated:', this.currentUser.username);
+            } else {
+                console.log('User not authenticated, redirecting to login');
+                router.setAuthenticated(false);
+                router.navigate('/login');
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
             router.setAuthenticated(false);
+            router.navigate('/login');
         }
     }
 }
 
-const views = new Views();
+// Make views available globally immediately
+window.views = new Views();
