@@ -359,8 +359,8 @@ func (c *Client) handlePrivateMessage(message WSMessage) {
 
 	c.hub.sendToUser(int64(receiverID), wsMessage)
 
-	// Send confirmation back to sender
-	c.send <- wsMessage
+	// Also send to sender for real-time update (in case they have multiple tabs open)
+	c.hub.sendToUser(c.userID, wsMessage)
 }
 
 // handleTyping processes typing indicators
