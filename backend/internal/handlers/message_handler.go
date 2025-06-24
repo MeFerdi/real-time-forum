@@ -6,17 +6,19 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"real-time-forum/backend/internal/auth"
 	"real-time-forum/backend/internal/models"
 )
 
 type MessageHandler struct {
-	db *sql.DB
+	db  *sql.DB
+	hub *Hub
 }
 
-func NewMessageHandler(db *sql.DB) *MessageHandler {
-	return &MessageHandler{db: db}
+func NewMessageHandler(db *sql.DB, hub *Hub) *MessageHandler {
+	return &MessageHandler{db: db, hub: hub}
 }
 
 // GetConversations retrieves all conversations for the authenticated user
@@ -197,6 +199,36 @@ func (h *MessageHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
+	}
+
+	// Broadcast message via WebSocket if hub is available
+	if h.hub != nil {
+		// Get sender info for WebSocket message
+		sender, err := models.GetUserByID(h.db, userID)
+		if err == nil {
+			// Create WebSocket message data
+			messageData := PrivateMessageData{
+				ID:         message.ID,
+				SenderID:   message.SenderID,
+				ReceiverID: message.ReceiverID,
+				Content:    message.Content,
+				IsRead:     message.IsRead,
+				CreatedAt:  message.CreatedAt,
+				Sender:     sender,
+			}
+
+			// Create WebSocket message
+			wsMessage := WSMessage{
+				Type:      MessageTypePrivateMessage,
+				Data:      messageData,
+				Timestamp: time.Now(),
+			}
+
+			// Send to receiver
+			h.hub.sendToUser(req.ReceiverID, wsMessage)
+			// Send to sender (for multi-tab support)
+			h.hub.sendToUser(userID, wsMessage)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
