@@ -44,8 +44,8 @@ func CreateSession(db *sql.DB, userID int64, w http.ResponseWriter) error {
 		Expires:  expiresAt,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,                // Set to false for development (HTTP), should be true in production (HTTPS)
+		SameSite: http.SameSiteLaxMode, // Changed to Lax for better compatibility
 	})
 
 	return nil
@@ -71,8 +71,8 @@ func DeleteSession(db *sql.DB, r *http.Request, w http.ResponseWriter) error {
 		Expires:  time.Unix(0, 0),
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,                // Set to false for development (HTTP), should be true in production (HTTPS)
+		SameSite: http.SameSiteLaxMode, // Changed to Lax for better compatibility
 	})
 
 	return nil
