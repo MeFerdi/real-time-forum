@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Forum</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Fonts inspired by 01talent platform -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
@@ -125,13 +131,11 @@
                             </div>
                         </div>
                         <div class="profile-filters">
-                            <button onclick="views.loadPosts('', 'my-posts')" class="filter-btn">My Posts</button>
-                            <button onclick="views.loadPosts('', 'liked-posts')" class="filter-btn">Liked Posts</button>
-                            <button onclick="views.loadPosts()" class="filter-btn">All Posts</button>
+                            <button onclick="window.views.loadPosts('', 'my-posts')" class="filter-btn">My Posts</button>
+                            <button onclick="window.views.loadPosts('', 'liked-posts')" class="filter-btn">Liked Posts</button>
+                            <button onclick="window.views.loadPosts()" class="filter-btn">All Posts</button>
                         </div>
-                        <div class="profile-actions">
-                            <button id="logoutBtn" class="logout-btn"></button>
-                        </div>
+
                     </div>
                 </div>
 
@@ -224,6 +228,9 @@
                     <!-- Chat Messages Area -->
                     <div class="chat-main">
                         <div class="chat-header" id="chat-header">
+                            <button id="back-to-conversations" class="back-btn" style="display: none;">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
                             <div class="chat-user-info">
                                 <div class="avatar">
                                     <i class="fas fa-user"></i>
