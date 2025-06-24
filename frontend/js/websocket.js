@@ -159,14 +159,18 @@ class WebSocketClient {
     // Default message handlers
     handlePrivateMessage(data, timestamp) {
         console.log('Received private message:', data);
-        
-        // Update UI with new message
+
+        // Always update UI with new message
         if (window.chatUI) {
             window.chatUI.addMessage(data);
         }
-        
-        // Show notification if not in current conversation
-        if (!this.currentConversation || this.currentConversation !== data.sender_id) {
+
+        // Show notification if not in current conversation and message is from another user
+        const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
+        const isFromOtherUser = data.sender_id !== currentUserId;
+        const isCurrentConversation = this.currentConversation === data.sender_id;
+
+        if (isFromOtherUser && !isCurrentConversation) {
             this.showMessageNotification(data);
         }
     }
