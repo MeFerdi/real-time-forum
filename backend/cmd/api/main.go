@@ -40,14 +40,14 @@ func main() {
 		log.Fatalf("Failed to initialize schema: %v", err)
 	}
 
+	// Initialize WebSocket hub first
+	hub := handlers.NewHub(db)
+	go hub.Run()
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db)
 	postHandler := handlers.NewPostHandler(db)
-	messageHandler := handlers.NewMessageHandler(db)
-
-	// Initialize WebSocket hub
-	hub := handlers.NewHub(db)
-	go hub.Run()
+	messageHandler := handlers.NewMessageHandler(db, hub)
 
 	// Create router
 	mux := http.NewServeMux()
