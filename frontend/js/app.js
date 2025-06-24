@@ -2,9 +2,9 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize router
     router.init();
-    
+
     // Initialize views and check authentication
-    await views.init();
+    await window.views.init();
     
     // Load categories for the filter
     const categories = await API.getCategories();
