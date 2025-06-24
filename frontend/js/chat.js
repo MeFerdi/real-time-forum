@@ -9,9 +9,10 @@ class ChatUI {
         this.loadingMore = false;
         this.scrollTimeout = null;
         this.searchTimeout = null;
+        this.isInitialized = false; // Track initialization state
 
         this.bindEvents();
-        this.initializeChat();
+        // Don't auto-initialize - wait for router to call initializeChat when needed
     }
 
     bindEvents() {
@@ -19,12 +20,18 @@ class ChatUI {
         const chatForm = document.getElementById('chat-form');
         if (chatForm) {
             chatForm.addEventListener('submit', (e) => this.handleSendMessage(e));
+            console.log('Chat form event listener bound');
+        } else {
+            console.warn('Chat form not found during binding');
         }
 
         // Message input typing indicator
         const messageInput = document.getElementById('message-input');
         if (messageInput) {
             messageInput.addEventListener('input', () => this.handleTyping());
+            console.log('Message input event listener bound');
+        } else {
+            console.warn('Message input not found during binding');
         }
 
         // User search (with debouncing)
@@ -64,6 +71,13 @@ class ChatUI {
             return;
         }
 
+        // Only initialize once to preserve real-time updates
+        if (this.isInitialized) {
+            console.log('Chat already initialized, refreshing UI only');
+            this.renderConversations();
+            return;
+        }
+
         try {
             console.log('Initializing chat for user:', window.views.currentUser.username);
 
@@ -73,8 +87,21 @@ class ChatUI {
             // Load all users for new conversations
             await this.loadAllUsers();
 
+            // Request current online users from WebSocket if connected
+            if (window.wsClient && window.wsClient.isConnected) {
+                // The WebSocket will automatically send online users when we connect
+                console.log('WebSocket connected, online users will be updated automatically');
+            }
+
+            // Rebind events after initialization to ensure DOM elements exist
+            this.bindEvents();
+
+            this.isInitialized = true;
+
         } catch (error) {
             console.error('Failed to initialize chat:', error);
+            // Don't show error to user for chat initialization failures
+            // The main app will handle authentication redirects
         }
     }
 
@@ -82,9 +109,25 @@ class ChatUI {
         try {
             const result = await API.request('/messages/conversations');
             if (result.success && result.data) {
-                this.conversations.clear();
+                // Only clear conversations if this is the first load
+                if (!this.isInitialized) {
+                    this.conversations.clear();
+                }
+
                 result.data.forEach(conv => {
-                    this.conversations.set(conv.user_id, conv);
+                    const existingConv = this.conversations.get(conv.user_id);
+                    if (existingConv) {
+                        // Merge with existing conversation, preserving real-time updates
+                        existingConv.last_message = conv.last_message;
+                        existingConv.unread_count = conv.unread_count;
+                        // Keep the online status from real-time updates
+                        if (!existingConv.hasOwnProperty('is_online')) {
+                            existingConv.is_online = conv.is_online || false;
+                        }
+                    } else {
+                        // Add new conversation
+                        this.conversations.set(conv.user_id, conv);
+                    }
                 });
                 this.renderConversations();
             }
@@ -139,29 +182,33 @@ class ChatUI {
 
         conversationsList.innerHTML = sortedConversations.map(conv => {
             const isOnline = this.onlineUsers.has(conv.user_id);
-            const lastMessageTime = conv.last_message ? 
+            const lastMessageTime = conv.last_message ?
                 this.formatRelativeTime(conv.last_message.created_at) : '';
-            const lastMessagePreview = conv.last_message ? 
-                conv.last_message.content.substring(0, 50) + (conv.last_message.content.length > 50 ? '...' : '') : 
+            const lastMessagePreview = conv.last_message ?
+                conv.last_message.content.substring(0, 50) + (conv.last_message.content.length > 50 ? '...' : '') :
                 'No messages yet';
 
+            // Add visual emphasis for unread messages
+            const hasUnread = conv.unread_count > 0;
+            const conversationClass = `conversation-item ${this.currentConversation === conv.user_id ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`;
+
             return `
-                <div class="conversation-item ${this.currentConversation === conv.user_id ? 'active' : ''}" 
-                     data-user-id="${conv.user_id}" 
+                <div class="${conversationClass}"
+                     data-user-id="${conv.user_id}"
                      onclick="window.chatUI.selectConversation(${conv.user_id})">
                     <div class="conversation-avatar">
-                        <img src="https://ui-avatars.com/api/?name=${conv.username}&background=random" 
+                        <img src="https://ui-avatars.com/api/?name=${conv.username}&background=random"
                              alt="${conv.username}'s avatar" />
                         <div class="status-indicator ${isOnline ? 'online' : 'offline'}"></div>
                     </div>
                     <div class="conversation-info">
                         <div class="conversation-header">
-                            <span class="username">${conv.username}</span>
+                            <span class="username ${hasUnread ? 'unread' : ''}">${conv.username}</span>
                             <span class="timestamp">${lastMessageTime}</span>
                         </div>
                         <div class="conversation-preview">
-                            <span class="last-message">${lastMessagePreview}</span>
-                            ${conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
+                            <span class="last-message ${hasUnread ? 'unread' : ''}">${lastMessagePreview}</span>
+                            ${hasUnread ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -170,6 +217,7 @@ class ChatUI {
     }
 
     async selectConversation(userID) {
+        console.log('selectConversation called with userID:', userID);
         this.currentConversation = userID;
 
         // Update WebSocket client
@@ -248,6 +296,7 @@ class ChatUI {
 
                 if (offset === 0) {
                     // Clear existing messages for new conversation
+                    console.log('Loading message history for user', userID, 'found', messages.length, 'messages');
                     this.messageHistory.set(userID, messages);
                     this.renderMessages(messages);
                 } else {
@@ -324,11 +373,27 @@ class ChatUI {
     }
 
     addMessage(messageData) {
+        console.log('addMessage called with:', messageData);
         const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
 
         // Determine the conversation partner
         const conversationPartnerId = messageData.sender_id === currentUserId ?
                                     messageData.receiver_id : messageData.sender_id;
+        console.log('Conversation partner ID:', conversationPartnerId);
+
+        // TEMPORARILY DISABLED: Check for duplicate messages (prevent optimistic duplicates)
+        // const messages = this.messageHistory.get(conversationPartnerId) || [];
+        // const isDuplicate = messages.some(msg =>
+        //     msg.content === messageData.content &&
+        //     msg.sender_id === messageData.sender_id &&
+        //     Math.abs(new Date(msg.created_at) - new Date(messageData.created_at)) < 5000 // Within 5 seconds
+        // );
+
+        // if (isDuplicate) {
+        //     console.log('Duplicate message detected, skipping:', messageData.content);
+        //     return;
+        // }
+        console.log('Message is not duplicate, proceeding to add');
 
         // Add to message history
         const messages = this.messageHistory.get(conversationPartnerId) || [];
@@ -357,8 +422,9 @@ class ChatUI {
             this.conversations.set(conversationPartnerId, conversation);
         }
 
-        // Update UI if this is the current conversation
-        if (this.currentConversation === conversationPartnerId) {
+        // Update UI if this is the current conversation AND user is on chat page
+        const isOnChatPage = window.location.hash === '#/chat' || window.location.pathname === '/chat';
+        if (this.currentConversation === conversationPartnerId && isOnChatPage) {
             const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
                 // Remove "no messages" placeholder if it exists
@@ -371,7 +437,7 @@ class ChatUI {
                 messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
                 this.scrollToBottom();
 
-                // Auto-mark as read if it's the current conversation and message is from other user
+                // Auto-mark as read only if user is actively viewing the chat and message is from other user
                 if (messageData.sender_id !== currentUserId) {
                     this.markMessagesAsRead(messageData.sender_id);
                     conversation.unread_count = 0;
@@ -379,23 +445,42 @@ class ChatUI {
             }
         }
 
-        // Update conversations list to reflect new message
-        this.renderConversations();
+        // Update conversations list to reflect new message (only if on chat page)
+        const isOnChatPage = window.location.hash === '#/chat' || window.location.pathname === '/chat';
+        if (isOnChatPage) {
+            this.renderConversations();
+        } else {
+            console.log('Not on chat page, conversation list will update when user navigates to chat');
+        }
 
         console.log('Message added:', messageData);
     }
 
     async handleSendMessage(e) {
         e.preventDefault();
+        console.log('handleSendMessage called');
 
-        if (!this.currentConversation) return;
+        if (!this.currentConversation) {
+            console.error('No current conversation selected');
+            return;
+        }
 
         const messageInput = document.getElementById('message-input');
-        const content = messageInput.value.trim();
+        if (!messageInput) {
+            console.error('Message input not found');
+            return;
+        }
 
-        if (!content) return;
+        const content = messageInput.value.trim();
+        console.log('Message content:', content);
+
+        if (!content) {
+            console.log('Empty message, not sending');
+            return;
+        }
 
         const currentUserId = window.views && window.views.currentUser ? window.views.currentUser.id : 0;
+        console.log('Current user ID:', currentUserId, 'Receiver ID:', this.currentConversation);
 
         // Create optimistic message for immediate UI update
         const optimisticMessage = {
@@ -413,14 +498,19 @@ class ChatUI {
 
         // Send via WebSocket if connected, otherwise use HTTP API
         let success = false;
+        console.log('WebSocket connected:', window.wsClient && window.wsClient.isConnected);
+
         if (window.wsClient && window.wsClient.isConnected) {
+            console.log('Sending via WebSocket');
             success = window.wsClient.sendPrivateMessage(this.currentConversation, content);
+            console.log('WebSocket send result:', success);
             if (success) {
-                // Add optimistic message immediately for WebSocket
-                this.addMessage(optimisticMessage);
+                // Don't add optimistic message - let WebSocket response handle it
+                console.log('Message sent via WebSocket, waiting for server response');
             }
         } else {
             // Fallback to HTTP API
+            console.log('Sending via HTTP API');
             try {
                 const result = await API.request('/messages/send', {
                     method: 'POST',
@@ -429,9 +519,14 @@ class ChatUI {
                         content: content
                     })
                 });
+                console.log('API response:', result);
                 success = result.success;
                 if (success) {
+                    console.log('Adding message from API response');
                     this.addMessage(result.data);
+                } else {
+                    console.error('API request failed:', result.error);
+                    messageInput.value = content; // Restore input on failure
                 }
             } catch (error) {
                 console.error('Failed to send message:', error);
@@ -656,6 +751,25 @@ class ChatUI {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Method to refresh chat UI when navigating back to chat
+    refreshChatUI() {
+        if (!this.isInitialized) {
+            this.initializeChat();
+            return;
+        }
+
+        // Rebind events in case DOM was recreated
+        this.bindEvents();
+
+        // Just refresh the UI with existing data
+        this.renderConversations();
+
+        // If there's a current conversation, refresh its display
+        if (this.currentConversation) {
+            this.updateChatHeader(this.currentConversation);
+        }
     }
 }
 
