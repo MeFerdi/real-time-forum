@@ -623,6 +623,21 @@ button:disabled {
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
+.conversation-item.has-unread {
+    border-left: 3px solid var(--primary-blue);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.conversation-item.has-unread .username.unread {
+    font-weight: 600;
+    color: var(--primary-blue);
+}
+
+.conversation-item.has-unread .last-message.unread {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 .conversation-avatar {
     position: relative;
     margin-right: var(--space-md);
