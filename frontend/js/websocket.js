@@ -63,9 +63,14 @@ class WebSocketClient {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
-        
+
         // Notify UI about connection status
         this.notifyConnectionStatus(true);
+
+        // Initialize chat if not already initialized
+        if (window.chatUI && !window.chatUI.isInitialized) {
+            window.chatUI.initializeChat();
+        }
     }
 
     handleMessage(event) {
@@ -160,8 +165,12 @@ class WebSocketClient {
     handlePrivateMessage(data, timestamp) {
         console.log('Received private message:', data);
 
-        // Always update UI with new message
+        // Ensure chat UI is initialized before adding message
         if (window.chatUI) {
+            if (!window.chatUI.isInitialized && window.views && window.views.currentUser) {
+                console.log('Initializing chat UI for incoming message');
+                window.chatUI.initializeChat();
+            }
             window.chatUI.addMessage(data);
         }
 
@@ -227,8 +236,11 @@ class WebSocketClient {
         // Update connection status indicator in UI
         const statusIndicator = document.getElementById('connection-status');
         if (statusIndicator) {
-            statusIndicator.className = connected ? 'connected' : 'disconnected';
-            statusIndicator.textContent = connected ? 'Connected' : 'Disconnected';
+            statusIndicator.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+            const statusText = statusIndicator.querySelector('span');
+            if (statusText) {
+                statusText.textContent = connected ? 'Connected' : 'Disconnected';
+            }
         }
         
         // Dispatch custom event for other components
