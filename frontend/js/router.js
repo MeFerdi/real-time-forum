@@ -46,7 +46,12 @@ class Router {
         const section = document.getElementById(sectionId);
         if (section) {
             section.classList.add('active');
-            
+
+            // Initialize chat when navigating to chat section
+            if (path === '/chat' && window.chatUI) {
+                window.chatUI.initializeChat();
+            }
+
             // Reset comment form if navigating away from post view
             if (path !== '/post') {
                 const commentForm = document.getElementById('comment-form');
