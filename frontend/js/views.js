@@ -171,47 +171,85 @@ class Views {
 
     // Post and comment handlers
     async loadPosts(category = '', filter = '') {
-        const result = await API.getPosts(category);
-        if (result.success) {
-            let filteredPosts = result.data;
-            let filterMessage = '';
+        // Check if user is authenticated before making API calls
+        if (!this.currentUser) {
+            console.log('User not authenticated, skipping loadPosts');
+            return;
+        }
 
-            // Apply additional filters if specified
-            if (filter === 'my-posts') {
-                filteredPosts = result.data.filter(post =>
-                    post.author.username === this.currentUser.username
-                );
-                filterMessage = 'You haven\'t created any posts yet.';
-            } else if (filter === 'liked-posts') {
-                filteredPosts = result.data.filter(post =>
-                    post.like_count > 0
-                );
-                filterMessage = 'You haven\'t liked any posts yet.';
-            } else if (category && category !== '') {
-                // If a specific category is selected, set appropriate message
-                filterMessage = 'No posts found in this category.';
+        try {
+            const result = await API.getPosts(category);
+            console.log('loadPosts API response:', result); // Debug logging
+
+            if (result.success && result.data && Array.isArray(result.data)) {
+                let filteredPosts = result.data;
+                let filterMessage = '';
+
+                // Apply additional filters if specified
+                if (filter === 'my-posts') {
+                    filteredPosts = result.data.filter(post =>
+                        post.author && post.author.username === this.currentUser.username
+                    );
+                    filterMessage = 'You haven\'t created any posts yet.';
+                } else if (filter === 'liked-posts') {
+                    filteredPosts = result.data.filter(post =>
+                        post.like_count > 0
+                    );
+                    filterMessage = 'You haven\'t liked any posts yet.';
+                } else if (category && category !== '') {
+                    // If a specific category is selected, set appropriate message
+                    filterMessage = 'No posts found in this category.';
+                }
+
+                const container = document.getElementById('posts-container');
+                if (!container) {
+                    console.error('Posts container not found');
+                    return;
+                }
+
+                if (filteredPosts.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-posts-message">
+                            <p>${filterMessage || 'No posts found.'}</p>
+                            ${(filter || category) ? `<button onclick="window.views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
+
+                    // Add click handlers to posts
+                    container.querySelectorAll('.post-card').forEach(card => {
+                        card.addEventListener('click', () => this.loadPost(card.dataset.postId));
+                    });
+                }
+
+                // Update the profile card with latest stats
+                this.updateProfileCard();
+            } else {
+                console.warn('Invalid API response for posts:', result);
+                // Show error message to user
+                const container = document.getElementById('posts-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="no-posts-message">
+                            <p>Failed to load posts. Please try again.</p>
+                            <button onclick="window.views.loadPosts()" class="action-btn">Retry</button>
+                        </div>
+                    `;
+                }
             }
-
+        } catch (error) {
+            console.error('Failed to load posts:', error);
+            // Show error message to user
             const container = document.getElementById('posts-container');
-
-            if (filteredPosts.length === 0) {
+            if (container) {
                 container.innerHTML = `
                     <div class="no-posts-message">
-                        <p>${filterMessage || 'No posts found.'}</p>
-                        ${(filter || category) ? `<button onclick="window.views.loadPosts()" class="action-btn">View All Posts</button>` : ''}
+                        <p>Failed to load posts. Please try again.</p>
+                        <button onclick="window.views.loadPosts()" class="action-btn">Retry</button>
                     </div>
                 `;
-            } else {
-                container.innerHTML = filteredPosts.map(post => this.renderPost(post)).join('');
-
-                // Add click handlers to posts
-                container.querySelectorAll('.post-card').forEach(card => {
-                    card.addEventListener('click', () => this.loadPost(card.dataset.postId));
-                });
             }
-
-            // Update the profile card with latest stats
-            this.updateProfileCard();
         }
     }
 
@@ -618,20 +656,40 @@ class Views {
     }
 
     async updateUserStats() {
+        // Check if user is authenticated before making API calls
+        if (!this.currentUser) {
+            console.log('User not authenticated, skipping updateUserStats');
+            return;
+        }
+
         try {
             const result = await API.getPosts();
-            if (result.success) {
+            console.log('updateUserStats API response:', result); // Debug logging
+
+            if (result.success && result.data && Array.isArray(result.data)) {
                 // Count user's posts
-                const userPosts = result.data.filter(post => 
+                const userPosts = result.data.filter(post =>
                     post.author && post.author.username === this.currentUser.username
                 );
                 const postCount = document.getElementById('post-count');
                 if (postCount) {
                     postCount.textContent = userPosts.length;
                 }
+            } else {
+                console.warn('Invalid API response for user stats:', result);
+                // Set default value if data is invalid
+                const postCount = document.getElementById('post-count');
+                if (postCount) {
+                    postCount.textContent = '0';
+                }
             }
         } catch (error) {
             console.error('Failed to update user stats:', error);
+            // Set default value on error
+            const postCount = document.getElementById('post-count');
+            if (postCount) {
+                postCount.textContent = '0';
+            }
         }
     }
 
