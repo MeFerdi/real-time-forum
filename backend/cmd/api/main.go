@@ -52,10 +52,6 @@ func main() {
 	// Create router
 	mux := http.NewServeMux()
 
-	// Serve static files for frontend
-	fs := http.FileServer(http.Dir("../frontend"))
-	mux.Handle("/", fs)
-
 	// Register public API routes
 	mux.HandleFunc("/api/register", userHandler.Register)
 	mux.HandleFunc("/api/login", userHandler.Login)
@@ -78,6 +74,21 @@ func main() {
 	mux.HandleFunc("/api/messages/mark-read", auth.RequireAuth(messageHandler.MarkAsRead, db))
 	mux.HandleFunc("/api/messages/users", auth.RequireAuth(messageHandler.GetAllUsers, db))
 	mux.HandleFunc("/api/messages/send", auth.RequireAuth(messageHandler.SendMessage, db))
+
+	// Create a custom handler that wraps the file server for SPA support
+	fs := http.FileServer(http.Dir("../frontend"))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if the requested file exists
+		filePath := "../frontend" + r.URL.Path
+		if _, err := os.Stat(filePath); os.IsNotExist(err) && r.URL.Path != "/" {
+			// File doesn't exist and it's not the root, serve index.html for SPA routing
+			http.ServeFile(w, r, "../frontend/index.html")
+			return
+		}
+
+		// Serve static files normally
+		fs.ServeHTTP(w, r)
+	}))
 
 	// Start HTTP server
 	log.Println("Starting server on :8080...")
