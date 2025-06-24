@@ -13,12 +13,18 @@ const API = {
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
+                // Handle authentication errors specifically
+                if (response.status === 401) {
+                    console.warn('Authentication required for:', endpoint);
+                    return { success: false, error: 'Authentication required', status: 401 };
+                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
+            console.log(`API ${endpoint} response:`, data); // Debug logging
             return { success: true, data };
         } catch (error) {
-            console.error('API Error:', error);
+            console.error('API Error for', endpoint, ':', error);
             return { success: false, error: error.message };
         }
     },
