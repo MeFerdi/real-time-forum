@@ -29,7 +29,6 @@ func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 				SELECT user_id, expires_at 
 				FROM sessions 
 				WHERE token = ?`, cookie.Value).Scan(&userID, &expiresAt)
-
 			if err != nil {
 				if err == sql.ErrNoRows {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)

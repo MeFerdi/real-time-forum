@@ -52,7 +52,7 @@ func (h *MessageHandler) GetConversationHistory(w http.ResponseWriter, r *http.R
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
+	
 	// Get user ID from context (set by auth middleware)
 	userID, ok := auth.GetUserID(r)
 	if !ok {
